@@ -48,3 +48,11 @@ Assets listed here are used only for presentation and feedback in this project. 
 - Retrieved: 2026-08-20
 
 Copies of the license text supplied with each downloaded archive are stored in `Assets/ThirdParty/Licenses`.
+
+## Project-generated upgrade icon atlas
+
+- File: `Assets/Resources/Task5/UI/upgrade_icons.png`
+- Generated with: OpenAI image generation tool
+- Used for: the eight weapon upgrade card icons
+- Generated: 2026-08-20
+- Note: this is AI-generated presentation artwork and is not represented as hand-drawn artwork.

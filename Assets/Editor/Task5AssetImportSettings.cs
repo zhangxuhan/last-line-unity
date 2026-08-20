@@ -7,14 +7,17 @@ public sealed class Task5AssetImportSettings : AssetPostprocessor
 
     private void OnPreprocessTexture()
     {
-        if (!assetPath.StartsWith(Root + "Art/")) return;
+        bool isArt = assetPath.StartsWith(Root + "Art/");
+        bool isUi = assetPath.StartsWith(Root + "UI/");
+        if (!isArt && !isUi) return;
         TextureImporter importer = (TextureImporter)assetImporter;
-        importer.textureType = TextureImporterType.Sprite;
-        importer.spriteImportMode = SpriteImportMode.Single;
+        importer.textureType = isUi ? TextureImporterType.Default : TextureImporterType.Sprite;
+        if (isArt) importer.spriteImportMode = SpriteImportMode.Single;
         importer.spritePixelsPerUnit = 64f;
         importer.filterMode = FilterMode.Bilinear;
         importer.mipmapEnabled = false;
         importer.alphaIsTransparency = true;
+        importer.isReadable = isUi;
         importer.textureCompression = TextureImporterCompression.Compressed;
     }
 

@@ -114,6 +114,14 @@ public sealed class GameFeedback : MonoBehaviour
         SpawnBurst(targetPosition, new Color(0.45f, 0.85f, 1f), 8, 0.18f, 0.25f);
     }
 
+    public void PlayBombDetonation(float centerX, float laneWidth, float triggerY)
+    {
+        Play(m_breach, 0.42f);
+        StartCoroutine(BombLaneRoutine(centerX, laneWidth));
+        SpawnBurst(new Vector3(centerX, triggerY, -0.1f), new Color(1f, 0.58f, 0.12f), 12, 0.28f, 0.45f);
+        Shake(0.15f, 0.11f);
+    }
+
     public void PlayGameplayMusic()
     {
         if (!m_music_source || !m_bgm) return;
@@ -283,6 +291,29 @@ public sealed class GameFeedback : MonoBehaviour
             yield return null;
         }
         if (bolt) Destroy(bolt);
+    }
+    private IEnumerator BombLaneRoutine(float centerX, float laneWidth)
+    {
+        if (!m_camera) yield break;
+        float distance = Mathf.Abs(m_camera.transform.position.z);
+        Vector3 bottom = m_camera.ViewportToWorldPoint(new Vector3(0.5f, 0f, distance));
+        Vector3 top = m_camera.ViewportToWorldPoint(new Vector3(0.5f, 1f, distance));
+        float height = Mathf.Abs(top.y - bottom.y);
+        GameObject flash = CreateSpriteObject("BombLaneBlast",
+            new Vector3(centerX, (top.y + bottom.y) * 0.5f, -0.12f), new Color(1f, 0.62f, 0.10f, 0.72f), 8);
+        flash.transform.localScale = new Vector3(laneWidth * 0.88f, height, 1f);
+        SpriteRenderer renderer = flash.GetComponent<SpriteRenderer>();
+        float elapsed = 0f;
+        const float duration = 0.22f;
+        while (elapsed < duration && flash)
+        {
+            elapsed += Time.deltaTime;
+            Color color = renderer.color;
+            color.a = (1f - Mathf.Clamp01(elapsed / duration)) * 0.72f;
+            renderer.color = color;
+            yield return null;
+        }
+        if (flash) Destroy(flash);
     }
     private GameObject CreateSpriteObject(string objectName, Vector3 position, Color color, int order)
     {

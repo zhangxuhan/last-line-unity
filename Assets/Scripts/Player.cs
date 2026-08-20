@@ -129,7 +129,11 @@ public class Player : MonoBehaviour
         if (!m_camera) m_camera = Camera.main;
         if (!m_camera) return;
         Plane plane = new Plane(Vector3.forward, transform.position);
-        if (!TryGetPlanePoint(m_camera.ScreenPointToRay(Input.mousePosition), plane, out Vector3 mouseWorld)) return;
+        Rect pixelRect = m_camera.pixelRect;
+        Vector3 pointer = Input.mousePosition;
+        pointer.x = Mathf.Clamp(pointer.x, pixelRect.xMin, pixelRect.xMax);
+        pointer.y = Mathf.Clamp(pointer.y, pixelRect.yMin, pixelRect.yMax);
+        if (!TryGetPlanePoint(m_camera.ScreenPointToRay(pointer), plane, out Vector3 mouseWorld)) return;
         Vector3 direction = mouseWorld - transform.position;
         direction.z = 0f;
         if (direction.sqrMagnitude > 0.0001f) m_aim_direction = direction.normalized;

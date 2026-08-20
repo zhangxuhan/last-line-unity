@@ -4,6 +4,39 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
+[DisallowMultipleComponent]
+[RequireComponent(typeof(Camera))]
+public sealed class PortraitCameraViewport : MonoBehaviour
+{
+    private const float TargetAspect = 9f / 16f;
+    private Camera m_camera;
+    private int m_last_width;
+    private int m_last_height;
+
+    private void Awake() { m_camera = GetComponent<Camera>(); ApplyViewport(); }
+    private void Update()
+    {
+        if (Screen.width != m_last_width || Screen.height != m_last_height) ApplyViewport();
+    }
+    private void ApplyViewport()
+    {
+        if (!m_camera || Screen.width <= 0 || Screen.height <= 0) return;
+        m_last_width = Screen.width;
+        m_last_height = Screen.height;
+        float screenAspect = (float)Screen.width / Screen.height;
+        if (screenAspect > TargetAspect)
+        {
+            float width = TargetAspect / screenAspect;
+            m_camera.rect = new Rect((1f - width) * 0.5f, 0f, width, 1f);
+        }
+        else
+        {
+            float height = screenAspect / TargetAspect;
+            m_camera.rect = new Rect(0f, (1f - height) * 0.5f, 1f, height);
+        }
+    }
+}
+
 public class StageLoop : MonoBehaviour
 {
     public enum GameState
@@ -33,6 +66,7 @@ public class StageLoop : MonoBehaviour
 
     [Header("Defense")]
     [SerializeField, Min(1)] private int m_max_breaches = 3;
+    [SerializeField, Range(1, 8)] private int m_defense_bomb_count = 5;
 
     [Header("Difficulty")]
     [SerializeField, Min(0.1f)] private float m_base_spawn_interval = 1.4f;
@@ -61,6 +95,7 @@ public class StageLoop : MonoBehaviour
     private Text m_upgrade_header_text;
     private readonly Button[] m_upgrade_buttons = new Button[3];
     private readonly Text[] m_upgrade_button_texts = new Text[3];
+    private readonly Image[] m_upgrade_button_icons = new Image[3];
     private readonly WeaponUpgradeChoice[] m_current_upgrade_choices = new WeaponUpgradeChoice[3];
     private PlayerProgression m_progression;
     private Player m_player;
@@ -71,6 +106,16 @@ public class StageLoop : MonoBehaviour
     private int m_game_score;
     private int m_breach_count;
     private float m_survival_time;
+    private bool[] m_defense_bombs_active;
+    private GameObject[] m_defense_bomb_visuals;
+    private float m_bomb_lane_min_x;
+    private float m_bomb_lane_width;
+    private float m_bomb_trigger_y;
+    private bool m_resolving_area_attack;
+    private Sprite[] m_upgrade_icons;
+    private static Sprite s_runtime_white_sprite;
+    private static Sprite s_tick_sprite;
+    private static Material s_upgrade_icon_material;
 
     public GameState State { get; private set; } = GameState.Title;
     public bool IsPlaying => State == GameState.Playing;
@@ -102,6 +147,8 @@ public class StageLoop : MonoBehaviour
         m_progression = new PlayerProgression();
         m_upgrade_random = new System.Random();
         if (!m_game_camera) m_game_camera = Camera.main;
+        if (m_game_camera && !m_game_camera.GetComponent<PortraitCameraViewport>())
+            m_game_camera.gameObject.AddComponent<PortraitCameraViewport>();
         CreateRuntimeUi();
         m_feedback = GetComponent<GameFeedback>();
         if (!m_feedback) m_feedback = gameObject.AddComponent<GameFeedback>();
@@ -173,6 +220,7 @@ public class StageLoop : MonoBehaviour
         m_feedback.StopAudio();
         m_feedback.Initialize(m_game_camera, m_stage_transform, m_stage_ui_root.transform, m_defense_text, DefenseLineY);
         m_feedback.PlayGameplayMusic();
+        CreateDefenseBombs();
 
         m_game_score = 0;
         m_breach_count = 0;
@@ -215,7 +263,7 @@ public class StageLoop : MonoBehaviour
         for (int index = 1; index <= levelUpCount; index++)
             OnLevelUp?.Invoke(previousLevel + index);
 
-        if (levelUpCount > 0 && IsPlaying) EnterLevelUp();
+        if (levelUpCount > 0 && IsPlaying && !m_resolving_area_attack) EnterLevelUp();
     }
 
     public bool TryConsumePendingUpgrade()
@@ -255,6 +303,7 @@ public class StageLoop : MonoBehaviour
 
             WeaponUpgradeChoice choice = choices[index];
             m_current_upgrade_choices[index] = choice;
+            if (m_upgrade_button_icons[index]) m_upgrade_button_icons[index].sprite = GetUpgradeIcon(choice.Type);
             WeaponUpgradeOption option = WeaponUpgradeSystem.BuildOption(choice, m_player.RuntimeWeapon);
             m_upgrade_button_texts[index].text = $"[{index + 1}] [{choice.Rarity}] {option.Name}\n{option.Description}\n{option.ValueChange}";
             Color rarityColor = GetRarityColor(choice.Rarity);
@@ -313,6 +362,77 @@ public class StageLoop : MonoBehaviour
         m_breach_count = Mathf.Min(m_max_breaches, m_breach_count + 1);
         RefreshHud();
         if (m_breach_count >= m_max_breaches) EnterGameOver();
+    }
+
+    public bool TryTriggerDefenseBomb(Enemy triggeringEnemy)
+    {
+        if (!IsPlaying || !triggeringEnemy || m_defense_bombs_active == null
+            || triggeringEnemy.transform.position.y > m_bomb_trigger_y || m_bomb_lane_width <= 0f) return false;
+
+        int lane = Mathf.FloorToInt((triggeringEnemy.transform.position.x - m_bomb_lane_min_x) / m_bomb_lane_width);
+        lane = Mathf.Clamp(lane, 0, m_defense_bombs_active.Length - 1);
+        if (!m_defense_bombs_active[lane]) return false;
+
+        m_defense_bombs_active[lane] = false;
+        if (m_defense_bomb_visuals != null && m_defense_bomb_visuals[lane])
+            Destroy(m_defense_bomb_visuals[lane]);
+
+        float laneMin = m_bomb_lane_min_x + lane * m_bomb_lane_width;
+        float laneMax = laneMin + m_bomb_lane_width;
+        float centerX = (laneMin + laneMax) * 0.5f;
+        m_feedback.PlayBombDetonation(centerX, m_bomb_lane_width, m_bomb_trigger_y);
+        m_resolving_area_attack = true;
+        Enemy.ClearVerticalLane(this, laneMin, laneMax);
+        m_resolving_area_attack = false;
+        if (IsPlaying && PendingUpgradeCount > 0) EnterLevelUp();
+        return true;
+    }
+
+    private void CreateDefenseBombs()
+    {
+        if (!m_game_camera || !m_stage_transform) return;
+        float distance = Mathf.Abs(m_game_camera.transform.position.z);
+        Vector3 left = m_game_camera.ViewportToWorldPoint(new Vector3(0f, 0.5f, distance));
+        Vector3 right = m_game_camera.ViewportToWorldPoint(new Vector3(1f, 0.5f, distance));
+        m_bomb_lane_min_x = Mathf.Min(left.x, right.x);
+        m_bomb_lane_width = Mathf.Abs(right.x - left.x) / m_defense_bomb_count;
+        m_bomb_trigger_y = DefenseLineY + 0.34f;
+        m_defense_bombs_active = new bool[m_defense_bomb_count];
+        m_defense_bomb_visuals = new GameObject[m_defense_bomb_count];
+
+        for (int lane = 0; lane < m_defense_bomb_count; lane++)
+        {
+            m_defense_bombs_active[lane] = true;
+            float x = m_bomb_lane_min_x + (lane + 0.5f) * m_bomb_lane_width;
+            GameObject bomb = new GameObject($"DefenseBomb{lane + 1}");
+            bomb.transform.SetParent(m_stage_transform, false);
+            bomb.transform.position = new Vector3(x, m_bomb_trigger_y, -0.05f);
+            CreateBombPiece(bomb.transform, "Body", Vector3.zero, new Vector3(0.28f, 0.28f, 1f),
+                Quaternion.Euler(0f, 0f, 45f), new Color(0.08f, 0.16f, 0.22f), 3);
+            CreateBombPiece(bomb.transform, "Core", Vector3.zero, new Vector3(0.13f, 0.13f, 1f),
+                Quaternion.identity, new Color(0.18f, 0.92f, 1f), 4);
+            CreateBombPiece(bomb.transform, "Fuse", new Vector3(0.12f, 0.16f, 0f), new Vector3(0.06f, 0.18f, 1f),
+                Quaternion.Euler(0f, 0f, -35f), new Color(1f, 0.54f, 0.10f), 4);
+            m_defense_bomb_visuals[lane] = bomb;
+        }
+    }
+
+    private static void CreateBombPiece(Transform parent, string name, Vector3 position, Vector3 scale,
+        Quaternion rotation, Color color, int order)
+    {
+        GameObject piece = new GameObject(name, typeof(SpriteRenderer));
+        piece.transform.SetParent(parent, false);
+        piece.transform.localPosition = position;
+        piece.transform.localScale = scale;
+        piece.transform.localRotation = rotation;
+        SpriteRenderer renderer = piece.GetComponent<SpriteRenderer>();
+        if (!s_runtime_white_sprite)
+            s_runtime_white_sprite = Sprite.Create(Texture2D.whiteTexture,
+                new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height),
+                new Vector2(0.5f, 0.5f), 1f);
+        renderer.sprite = s_runtime_white_sprite;
+        renderer.color = color;
+        renderer.sortingOrder = order;
     }
 
     private void EnterGameOver()
@@ -494,8 +614,20 @@ public class StageLoop : MonoBehaviour
         checkRect.pivot = new Vector2(0f, 0.5f);
         checkRect.anchoredPosition = new Vector2(12f, 0f);
         checkRect.sizeDelta = new Vector2(25f, 25f);
-        Image checkImage = check.GetComponent<Image>();
-        checkImage.color = new Color(0.18f, 0.92f, 1f);
+        Image checkBox = check.GetComponent<Image>();
+        checkBox.color = new Color(0.03f, 0.10f, 0.15f, 1f);
+
+        GameObject tickObject = new GameObject("Tick", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform tickRect = tickObject.GetComponent<RectTransform>();
+        tickRect.SetParent(checkRect, false);
+        tickRect.anchorMin = Vector2.zero;
+        tickRect.anchorMax = Vector2.one;
+        tickRect.offsetMin = new Vector2(2f, 2f);
+        tickRect.offsetMax = new Vector2(-2f, -2f);
+        Image tickImage = tickObject.GetComponent<Image>();
+        tickImage.sprite = GetTickSprite();
+        tickImage.color = new Color(0.18f, 0.92f, 1f);
+        tickImage.raycastTarget = false;
 
         Text label = Instantiate(m_stage_score_text, rect);
         label.name = "Label";
@@ -510,7 +642,7 @@ public class StageLoop : MonoBehaviour
 
         m_auto_fire_toggle = root.GetComponent<Toggle>();
         m_auto_fire_toggle.targetGraphic = background;
-        m_auto_fire_toggle.graphic = checkImage;
+        m_auto_fire_toggle.graphic = tickImage;
         m_auto_fire_toggle.isOn = m_auto_fire_enabled;
         m_auto_fire_toggle.onValueChanged.AddListener(SetAutoFire);
     }
@@ -519,6 +651,38 @@ public class StageLoop : MonoBehaviour
     {
         m_auto_fire_enabled = enabled;
         if (m_player) m_player.SetAutoFire(enabled);
+    }
+
+    private static Sprite GetTickSprite()
+    {
+        if (s_tick_sprite) return s_tick_sprite;
+        const int size = 32;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.name = "RuntimeTick";
+        texture.filterMode = FilterMode.Bilinear;
+        Color[] pixels = new Color[size * size];
+        texture.SetPixels(pixels);
+        DrawTickSegment(texture, new Vector2Int(5, 16), new Vector2Int(13, 8), 3);
+        DrawTickSegment(texture, new Vector2Int(13, 8), new Vector2Int(27, 25), 3);
+        texture.Apply(false, true);
+        s_tick_sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+        return s_tick_sprite;
+    }
+
+    private static void DrawTickSegment(Texture2D texture, Vector2Int start, Vector2Int end, int radius)
+    {
+        int steps = Mathf.Max(Mathf.Abs(end.x - start.x), Mathf.Abs(end.y - start.y));
+        for (int step = 0; step <= steps; step++)
+        {
+            float t = steps > 0 ? (float)step / steps : 0f;
+            int x = Mathf.RoundToInt(Mathf.Lerp(start.x, end.x, t));
+            int y = Mathf.RoundToInt(Mathf.Lerp(start.y, end.y, t));
+            for (int offsetX = -radius; offsetX <= radius; offsetX++)
+                for (int offsetY = -radius; offsetY <= radius; offsetY++)
+                    if (offsetX * offsetX + offsetY * offsetY <= radius * radius)
+                        texture.SetPixel(Mathf.Clamp(x + offsetX, 0, texture.width - 1),
+                            Mathf.Clamp(y + offsetY, 0, texture.height - 1), Color.white);
+        }
     }
 
     private static void StyleText(Text text, int size, Color color)
@@ -638,7 +802,7 @@ public class StageLoop : MonoBehaviour
             optionText.name = "Text";
             optionText.rectTransform.anchorMin = Vector2.zero;
             optionText.rectTransform.anchorMax = Vector2.one;
-            optionText.rectTransform.offsetMin = new Vector2(18f, 8f);
+            optionText.rectTransform.offsetMin = new Vector2(112f, 8f);
             optionText.rectTransform.offsetMax = new Vector2(-18f, -8f);
             optionText.alignment = TextAnchor.MiddleCenter;
             optionText.fontSize = 23;
@@ -646,9 +810,53 @@ public class StageLoop : MonoBehaviour
             optionText.raycastTarget = false;
             StyleText(optionText, 21, Color.white);
             m_upgrade_button_texts[index] = optionText;
+
+            GameObject iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            RectTransform iconTransform = iconObject.GetComponent<RectTransform>();
+            iconTransform.SetParent(buttonTransform, false);
+            iconTransform.anchorMin = new Vector2(0f, 0.5f);
+            iconTransform.anchorMax = new Vector2(0f, 0.5f);
+            iconTransform.pivot = new Vector2(0.5f, 0.5f);
+            iconTransform.anchoredPosition = new Vector2(61f, 0f);
+            iconTransform.sizeDelta = new Vector2(82f, 82f);
+            Image icon = iconObject.GetComponent<Image>();
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            icon.material = GetUpgradeIconMaterial();
+            m_upgrade_button_icons[index] = icon;
         }
 
         m_upgrade_panel.SetActive(false);
+    }
+
+    private Sprite GetUpgradeIcon(WeaponUpgradeType type)
+    {
+        if (m_upgrade_icons == null)
+        {
+            Texture2D atlas = Resources.Load<Texture2D>("Task5/UI/upgrade_icons");
+            if (!atlas) return null;
+            m_upgrade_icons = new Sprite[8];
+            float cellWidth = atlas.width / 4f;
+            float cellHeight = atlas.height / 2f;
+            for (int index = 0; index < m_upgrade_icons.Length; index++)
+            {
+                int column = index % 4;
+                int rowFromTop = index / 4;
+                float y = atlas.height - (rowFromTop + 1) * cellHeight;
+                m_upgrade_icons[index] = Sprite.Create(atlas,
+                    new Rect(column * cellWidth, y, cellWidth, cellHeight), new Vector2(0.5f, 0.5f), 100f);
+            }
+        }
+        int iconIndex = (int)type;
+        return iconIndex >= 0 && iconIndex < m_upgrade_icons.Length ? m_upgrade_icons[iconIndex] : null;
+    }
+
+    private static Material GetUpgradeIconMaterial()
+    {
+        if (s_upgrade_icon_material) return s_upgrade_icon_material;
+        Shader shader = Resources.Load<Shader>("Task5/UI/IconChromaKey");
+        if (shader) s_upgrade_icon_material = new Material(shader) { name = "RuntimeUpgradeIconMaterial" };
+        return s_upgrade_icon_material;
     }
 
     private static Color GetRarityColor(UpgradeRarity rarity)
@@ -709,6 +917,7 @@ public class StageLoop : MonoBehaviour
     {
         m_player_bottom_offset = Mathf.Max(0f, m_player_bottom_offset);
         m_defense_bottom_offset = Mathf.Max(0f, m_defense_bottom_offset);
+        m_defense_bomb_count = Mathf.Clamp(m_defense_bomb_count, 1, 8);
         m_max_breaches = Mathf.Max(1, m_max_breaches);
         m_base_spawn_interval = Mathf.Max(0.1f, m_base_spawn_interval);
         m_min_spawn_interval = Mathf.Clamp(m_min_spawn_interval, 0.1f, m_base_spawn_interval);

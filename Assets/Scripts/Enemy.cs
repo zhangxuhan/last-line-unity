@@ -61,6 +61,7 @@ public class Enemy : MonoBehaviour
         transform.position += Vector3.down * m_move_speed * Time.deltaTime;
         UpdateWalkVisual();
 
+        if (m_stage_loop.TryTriggerDefenseBomb(this)) return;
         if (transform.position.y <= m_defense_line_y) BreachDefense();
     }
 
@@ -90,13 +91,13 @@ public class Enemy : MonoBehaviour
         DisableCollision();
     }
 
-    private void Die()
+    private void Die(bool playFeedback = true)
     {
         if (m_is_settled) return;
         m_is_settled = true;
         DisableCollision();
         if (m_hit_feedback != null) StopCoroutine(m_hit_feedback);
-        m_stage_loop.Feedback?.PlayEnemyDeath(transform.position);
+        if (playFeedback) m_stage_loop.Feedback?.PlayEnemyDeath(transform.position);
         m_stage_loop.RegisterEnemyKilled(m_score, m_experience);
         Destroy(gameObject);
     }
@@ -180,6 +181,17 @@ public class Enemy : MonoBehaviour
         if (!target) return;
         target.m_stage_loop.Feedback?.PlayLightning(target.transform.position);
         target.Die();
+    }
+
+    public static int ClearVerticalLane(StageLoop stageLoop, float minX, float maxX)
+    {
+        var targets = new List<Enemy>();
+        foreach (Enemy enemy in s_active_enemies)
+            if (enemy && enemy.m_initialized && !enemy.m_is_settled && enemy.m_stage_loop == stageLoop
+                && enemy.transform.position.x >= minX && enemy.transform.position.x <= maxX)
+                targets.Add(enemy);
+        foreach (Enemy enemy in targets) if (enemy) enemy.Die(false);
+        return targets.Count;
     }
 
     private void UpdateWalkVisual()
