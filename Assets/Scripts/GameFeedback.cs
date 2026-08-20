@@ -18,7 +18,6 @@ public sealed class GameFeedback : MonoBehaviour
     private static Sprite s_white_sprite;
     private static Font s_runtime_font;
     private static Sprite[] s_tree_sprites;
-    private static Material s_environment_material;
 
     public void Initialize(Camera gameCamera, Transform stageRoot, Transform uiRoot, Text defenseText, float defenseLineY)
     {
@@ -360,20 +359,15 @@ public sealed class GameFeedback : MonoBehaviour
 
     private void BuildSideTrees(Transform stageRoot, float centerX, float bottom, float width, float height)
     {
-        Texture2D atlas = Resources.Load<Texture2D>("Task5/Environment/side_trees");
-        if (!atlas) return;
         if (s_tree_sprites == null)
         {
-            s_tree_sprites = new Sprite[4];
-            float cellWidth = atlas.width / 4f;
-            for (int index = 0; index < s_tree_sprites.Length; index++)
-                s_tree_sprites[index] = Sprite.Create(atlas,
-                    new Rect(index * cellWidth, 0f, cellWidth, atlas.height), new Vector2(0.5f, 0.5f), cellWidth);
-        }
-        if (!s_environment_material)
-        {
-            Shader shader = Resources.Load<Shader>("Task5/Environment/SpriteChromaKey");
-            if (shader) s_environment_material = new Material(shader) { name = "RuntimeEnvironmentMaterial" };
+            s_tree_sprites = new[]
+            {
+                Resources.Load<Sprite>("Task5/Environment/tree_pine"),
+                Resources.Load<Sprite>("Task5/Environment/tree_column"),
+                Resources.Load<Sprite>("Task5/Environment/tree_round"),
+                Resources.Load<Sprite>("Task5/Environment/tree_broad")
+            };
         }
 
         const int treesPerSide = 7;
@@ -395,7 +389,6 @@ public sealed class GameFeedback : MonoBehaviour
                 renderer.sprite = s_tree_sprites[index % s_tree_sprites.Length];
                 renderer.color = new Color(0.72f, 0.78f, 0.78f, 0.82f);
                 renderer.sortingOrder = -12;
-                if (s_environment_material) renderer.sharedMaterial = s_environment_material;
             }
         }
     }

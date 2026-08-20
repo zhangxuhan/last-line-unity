@@ -57,13 +57,15 @@ Copies of the license text supplied with each downloaded archive are stored in `
 - Generated: 2026-08-20
 - Note: this is AI-generated presentation artwork and is not represented as hand-drawn artwork.
 
-## Project-generated side-tree atlas
+## Kenney Foliage Pack
 
-- File: `Assets/Resources/Task5/Environment/side_trees.png`
-- Generated with: OpenAI image generation tool
-- Used for: low-contrast decorative trees along both sides of the battlefield
-- Generated: 2026-08-20
-- Note: this is AI-generated presentation artwork and is not represented as hand-drawn artwork.
+- Provider: Kenney
+- Source: https://kenney.nl/assets/foliage-pack
+- License: Creative Commons CC0 1.0 Universal
+- Used files: `tree_pine.png`, `tree_column.png`, `tree_round.png`, `tree_broad.png`
+- Original files: `foliagePack_005.png`, `foliagePack_010.png`, `foliagePack_014.png`, `foliagePack_017.png`
+- Used for: transparent decorative trees along both sides of the battlefield
+- Retrieved: 2026-08-20
 
 ## Project-generated defense mine
 
