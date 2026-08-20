@@ -368,11 +368,11 @@ public sealed class GameFeedback : MonoBehaviour
             float cellWidth = atlas.width / 4f;
             for (int index = 0; index < s_tree_sprites.Length; index++)
                 s_tree_sprites[index] = Sprite.Create(atlas,
-                    new Rect(index * cellWidth, 0f, cellWidth, atlas.height), new Vector2(0.5f, 0.5f), 100f);
+                    new Rect(index * cellWidth, 0f, cellWidth, atlas.height), new Vector2(0.5f, 0.5f), cellWidth);
         }
         if (!s_environment_material)
         {
-            Shader shader = Resources.Load<Shader>("Task5/UI/IconChromaKey");
+            Shader shader = Resources.Load<Shader>("Task5/Environment/SpriteChromaKey");
             if (shader) s_environment_material = new Material(shader) { name = "RuntimeEnvironmentMaterial" };
         }
 

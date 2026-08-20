@@ -113,9 +113,10 @@ public class StageLoop : MonoBehaviour
     private float m_bomb_trigger_y;
     private bool m_resolving_area_attack;
     private Sprite[] m_upgrade_icons;
-    private static Sprite s_runtime_white_sprite;
     private static Sprite s_tick_sprite;
     private static Material s_upgrade_icon_material;
+    private static Sprite s_defense_mine_sprite;
+    private static Material s_world_sprite_material;
 
     public GameState State { get; private set; } = GameState.Title;
     public bool IsPlaying => State == GameState.Playing;
@@ -407,32 +408,32 @@ public class StageLoop : MonoBehaviour
             GameObject bomb = new GameObject($"DefenseBomb{lane + 1}");
             bomb.transform.SetParent(m_stage_transform, false);
             bomb.transform.position = new Vector3(x, m_bomb_trigger_y, -0.05f);
-            CreateBombPiece(bomb.transform, "Body", Vector3.zero, new Vector3(0.18f, 0.18f, 1f),
-                Quaternion.Euler(0f, 0f, 45f), new Color(0.08f, 0.16f, 0.22f), 3);
-            CreateBombPiece(bomb.transform, "Core", Vector3.zero, new Vector3(0.075f, 0.075f, 1f),
-                Quaternion.identity, new Color(0.16f, 0.68f, 0.76f), 4);
-            CreateBombPiece(bomb.transform, "Fuse", new Vector3(0.075f, 0.10f, 0f), new Vector3(0.038f, 0.11f, 1f),
-                Quaternion.Euler(0f, 0f, -35f), new Color(0.86f, 0.42f, 0.08f), 4);
+            SpriteRenderer renderer = bomb.AddComponent<SpriteRenderer>();
+            renderer.sprite = GetDefenseMineSprite();
+            renderer.sharedMaterial = GetWorldSpriteMaterial();
+            renderer.color = new Color(0.84f, 0.90f, 0.92f, 0.92f);
+            renderer.sortingOrder = 3;
+            bomb.transform.localScale = Vector3.one * 0.40f;
             m_defense_bomb_visuals[lane] = bomb;
         }
     }
 
-    private static void CreateBombPiece(Transform parent, string name, Vector3 position, Vector3 scale,
-        Quaternion rotation, Color color, int order)
+    private static Sprite GetDefenseMineSprite()
     {
-        GameObject piece = new GameObject(name, typeof(SpriteRenderer));
-        piece.transform.SetParent(parent, false);
-        piece.transform.localPosition = position;
-        piece.transform.localScale = scale;
-        piece.transform.localRotation = rotation;
-        SpriteRenderer renderer = piece.GetComponent<SpriteRenderer>();
-        if (!s_runtime_white_sprite)
-            s_runtime_white_sprite = Sprite.Create(Texture2D.whiteTexture,
-                new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height),
-                new Vector2(0.5f, 0.5f), 1f);
-        renderer.sprite = s_runtime_white_sprite;
-        renderer.color = color;
-        renderer.sortingOrder = order;
+        if (s_defense_mine_sprite) return s_defense_mine_sprite;
+        Texture2D texture = Resources.Load<Texture2D>("Task5/Environment/defense_mine");
+        if (!texture) return null;
+        s_defense_mine_sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
+            new Vector2(0.5f, 0.5f), texture.width);
+        return s_defense_mine_sprite;
+    }
+
+    private static Material GetWorldSpriteMaterial()
+    {
+        if (s_world_sprite_material) return s_world_sprite_material;
+        Shader shader = Resources.Load<Shader>("Task5/Environment/SpriteChromaKey");
+        if (shader) s_world_sprite_material = new Material(shader) { name = "RuntimeWorldSpriteMaterial" };
+        return s_world_sprite_material;
     }
 
     private void EnterGameOver()

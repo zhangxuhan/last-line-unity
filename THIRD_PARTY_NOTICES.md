@@ -64,3 +64,11 @@ Copies of the license text supplied with each downloaded archive are stored in `
 - Used for: low-contrast decorative trees along both sides of the battlefield
 - Generated: 2026-08-20
 - Note: this is AI-generated presentation artwork and is not represented as hand-drawn artwork.
+
+## Project-generated defense mine
+
+- File: `Assets/Resources/Task5/Environment/defense_mine.png`
+- Generated with: OpenAI image generation tool
+- Used for: the five single-use defense-lane mines
+- Generated: 2026-08-20
+- Note: this is AI-generated presentation artwork and is not represented as hand-drawn artwork.
