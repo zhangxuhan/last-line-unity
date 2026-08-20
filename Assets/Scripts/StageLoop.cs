@@ -453,6 +453,7 @@ public class StageLoop : MonoBehaviour
         if (!IsPlaying) return;
 
         Time.timeScale = 1f;
+        LocalLeaderboard.Record(m_game_score, m_survival_time, Level);
         m_progression.DiscardPendingUpgrades();
         SetState(GameState.GameOver);
         m_feedback.PlayGameOver();
