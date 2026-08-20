@@ -116,7 +116,6 @@ public class StageLoop : MonoBehaviour
     private static Sprite s_tick_sprite;
     private static Material s_upgrade_icon_material;
     private static Sprite s_defense_mine_sprite;
-    private static Material s_world_sprite_material;
 
     public GameState State { get; private set; } = GameState.Title;
     public bool IsPlaying => State == GameState.Playing;
@@ -410,10 +409,9 @@ public class StageLoop : MonoBehaviour
             bomb.transform.position = new Vector3(x, m_bomb_trigger_y, -0.05f);
             SpriteRenderer renderer = bomb.AddComponent<SpriteRenderer>();
             renderer.sprite = GetDefenseMineSprite();
-            renderer.sharedMaterial = GetWorldSpriteMaterial();
-            renderer.color = new Color(0.84f, 0.90f, 0.92f, 0.92f);
+            renderer.color = Color.white;
             renderer.sortingOrder = 3;
-            bomb.transform.localScale = Vector3.one * 0.40f;
+            bomb.transform.localScale = Vector3.one * 0.30f;
             m_defense_bomb_visuals[lane] = bomb;
         }
     }
@@ -421,19 +419,33 @@ public class StageLoop : MonoBehaviour
     private static Sprite GetDefenseMineSprite()
     {
         if (s_defense_mine_sprite) return s_defense_mine_sprite;
-        Texture2D texture = Resources.Load<Texture2D>("Task5/Environment/defense_mine");
-        if (!texture) return null;
-        s_defense_mine_sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height),
-            new Vector2(0.5f, 0.5f), texture.width);
+        const int size = 64;
+        Vector2 center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.name = "RuntimeDefenseMine";
+        texture.filterMode = FilterMode.Bilinear;
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 offset = new Vector2(x, y) - center;
+                float radius = offset.magnitude;
+                float angle = Mathf.Atan2(offset.y, offset.x);
+                float spoke = Mathf.Abs(Mathf.Sin(angle * 4f));
+                Color color = Color.clear;
+                if (radius <= 25f) color = radius > 21f ? new Color(0.10f, 0.22f, 0.29f, 1f) : new Color(0.035f, 0.09f, 0.14f, 1f);
+                if (radius > 24f && radius <= 30f && spoke < 0.30f) color = new Color(0.08f, 0.17f, 0.23f, 1f);
+                if (radius >= 10f && radius <= 12f) color = new Color(0.12f, 0.72f, 0.82f, 1f);
+                if (radius <= 5f) color = new Color(0.16f, 0.92f, 1f, 1f);
+                if (radius >= 17f && radius <= 19f && spoke < 0.18f) color = new Color(0.95f, 0.42f, 0.07f, 1f);
+                pixels[y * size + x] = color;
+            }
+        }
+        texture.SetPixels(pixels);
+        texture.Apply(false, true);
+        s_defense_mine_sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
         return s_defense_mine_sprite;
-    }
-
-    private static Material GetWorldSpriteMaterial()
-    {
-        if (s_world_sprite_material) return s_world_sprite_material;
-        Shader shader = Resources.Load<Shader>("Task5/Environment/SpriteChromaKey");
-        if (shader) s_world_sprite_material = new Material(shader) { name = "RuntimeWorldSpriteMaterial" };
-        return s_world_sprite_material;
     }
 
     private void EnterGameOver()
@@ -559,6 +571,14 @@ public class StageLoop : MonoBehaviour
         {
             stageCanvas.overrideSorting = true;
             stageCanvas.sortingOrder = 100;
+            CanvasScaler scaler = stageCanvas.GetComponent<CanvasScaler>();
+            if (scaler)
+            {
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(768f, 1024f);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 0.5f;
+            }
         }
         m_defense_text = CreateText("Defense", new Vector2(0f, 1f), new Vector2(0f, 1f),
             new Vector2(10f, -10f), new Vector2(0f, 1f), TextAnchor.UpperLeft);
@@ -566,6 +586,9 @@ public class StageLoop : MonoBehaviour
             new Vector2(-10f, -10f), new Vector2(1f, 1f), TextAnchor.UpperRight);
         m_level_text = CreateText("Level", new Vector2(1f, 0f), new Vector2(1f, 0f),
             new Vector2(-10f, 10f), new Vector2(1f, 0f), TextAnchor.LowerRight);
+        m_defense_text.rectTransform.sizeDelta = new Vector2(270f, 40f);
+        m_time_text.rectTransform.sizeDelta = new Vector2(230f, 40f);
+        m_level_text.rectTransform.sizeDelta = new Vector2(180f, 40f);
         CreateAutoFireToggle();
         m_experience_text = CreateText("Experience", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
             new Vector2(0f, 42f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
@@ -577,6 +600,11 @@ public class StageLoop : MonoBehaviour
         m_game_over_text.rectTransform.anchorMax = new Vector2(0.95f, 0.5f);
         m_game_over_text.rectTransform.sizeDelta = new Vector2(0f, 360f);
         m_game_over_text.fontSize = 28;
+        m_game_over_text.resizeTextForBestFit = true;
+        m_game_over_text.resizeTextMinSize = 18;
+        m_game_over_text.resizeTextMaxSize = 28;
+        m_game_over_text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        m_game_over_text.verticalOverflow = VerticalWrapMode.Truncate;
         m_game_over_text.color = Color.white;
         StyleText(m_stage_score_text, 26, new Color(0.82f, 0.95f, 1f));
     }
@@ -604,8 +632,8 @@ public class StageLoop : MonoBehaviour
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(0f, 0f);
         rect.pivot = new Vector2(0f, 0f);
-        rect.anchoredPosition = new Vector2(14f, 62f);
-        rect.sizeDelta = new Vector2(190f, 46f);
+        rect.anchoredPosition = new Vector2(14f, 76f);
+        rect.sizeDelta = new Vector2(170f, 42f);
         Image background = root.GetComponent<Image>();
         background.color = new Color(0.035f, 0.09f, 0.14f, 0.92f);
 
@@ -777,6 +805,9 @@ public class StageLoop : MonoBehaviour
         m_upgrade_header_text.rectTransform.sizeDelta = new Vector2(0f, 115f);
         m_upgrade_header_text.fontSize = 27;
         m_upgrade_header_text.color = Color.white;
+        m_upgrade_header_text.resizeTextForBestFit = true;
+        m_upgrade_header_text.resizeTextMinSize = 20;
+        m_upgrade_header_text.resizeTextMaxSize = 27;
 
         for (int index = 0; index < m_upgrade_buttons.Length; index++)
         {
@@ -812,6 +843,11 @@ public class StageLoop : MonoBehaviour
             optionText.color = Color.white;
             optionText.raycastTarget = false;
             StyleText(optionText, 19, Color.white);
+            optionText.resizeTextForBestFit = true;
+            optionText.resizeTextMinSize = 13;
+            optionText.resizeTextMaxSize = 19;
+            optionText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            optionText.verticalOverflow = VerticalWrapMode.Truncate;
             m_upgrade_button_texts[index] = optionText;
 
             GameObject iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));

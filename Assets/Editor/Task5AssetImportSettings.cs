@@ -9,9 +9,10 @@ public sealed class Task5AssetImportSettings : AssetPostprocessor
     {
         bool isArt = assetPath.StartsWith(Root + "Art/");
         bool isEnvironmentSprite = assetPath.Contains("/Environment/tree_");
-        bool isRuntimeAtlas = assetPath.StartsWith(Root + "UI/") || assetPath.EndsWith("/Environment/defense_mine.png");
+        bool isRuntimeAtlas = assetPath.StartsWith(Root + "UI/");
         if (!isArt && !isEnvironmentSprite && !isRuntimeAtlas) return;
         TextureImporter importer = (TextureImporter)assetImporter;
+        importer.textureShape = TextureImporterShape.Texture2D;
         importer.textureType = isRuntimeAtlas ? TextureImporterType.Default : TextureImporterType.Sprite;
         if (isArt || isEnvironmentSprite) importer.spriteImportMode = SpriteImportMode.Single;
         importer.spritePixelsPerUnit = isEnvironmentSprite ? 256f : 64f;
