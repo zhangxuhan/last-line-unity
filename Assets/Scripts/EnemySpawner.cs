@@ -60,18 +60,25 @@ public class EnemySpawner : MonoBehaviour
         enemy.transform.position = position;
         m_stage_loop.GetCurrentEnemyStats(out int maxHp, out float moveSpeed);
         enemy.Initialize(m_stage_loop, maxHp, moveSpeed, m_stage_loop.DefenseLineY,
-            RollArchetype(m_stage_loop.Level));
+            RollArchetype(m_stage_loop.Level, m_stage_loop.DifficultyStage));
     }
 
-    private static Enemy.Archetype RollArchetype(int playerLevel)
+    private static Enemy.Archetype RollArchetype(int playerLevel, int difficultyStage)
     {
-        if (playerLevel < 2) return Enemy.Archetype.Normal;
+        if (playerLevel < 2 && difficultyStage < 1) return Enemy.Archetype.Normal;
+
         float roll = Random.value;
-        float levelBonus = Mathf.Min(0.20f, (playerLevel - 2) * 0.04f);
-        float bruteChance = 0.10f + levelBonus;
-        float runnerChance = 0.10f + levelBonus;
-        if (roll < bruteChance) return Enemy.Archetype.Brute;
-        if (roll < bruteChance + runnerChance) return Enemy.Archetype.Runner;
+        int pressure = Mathf.Max(Mathf.Max(0, playerLevel - 2), Mathf.Max(0, difficultyStage - 1));
+        float bruteChance = 0.08f + Mathf.Min(0.17f, pressure * 0.025f);
+        float runnerChance = 0.08f + Mathf.Min(0.17f, pressure * 0.025f);
+        bool eliteUnlocked = playerLevel >= 4 || difficultyStage >= 4;
+        float eliteChance = eliteUnlocked
+            ? 0.04f + Mathf.Min(0.11f, Mathf.Max(playerLevel - 4, difficultyStage - 4) * 0.02f)
+            : 0f;
+
+        if (roll < eliteChance) return Enemy.Archetype.Elite;
+        if (roll < eliteChance + bruteChance) return Enemy.Archetype.Brute;
+        if (roll < eliteChance + bruteChance + runnerChance) return Enemy.Archetype.Runner;
         return Enemy.Archetype.Normal;
     }
 

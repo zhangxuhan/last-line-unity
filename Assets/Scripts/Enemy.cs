@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
-    public enum Archetype { Normal, Brute, Runner }
+    public enum Archetype { Normal, Brute, Runner, Elite }
 
     [Header("Combat")]
     [SerializeField, Min(1)] private int m_max_hp = 30;
@@ -139,6 +139,8 @@ public class Enemy : MonoBehaviour
             case Archetype.Brute:
                 maxHp = Mathf.CeilToInt(maxHp * 2f);
                 moveSpeed *= 0.68f;
+                m_score *= 2;
+                m_experience = Mathf.Max(2, m_experience * 2);
                 transform.localScale = m_base_root_scale * 1.45f;
                 m_visual_color = new Color(0.72f, 0.40f, 0.32f);
                 m_walk_bob *= 0.75f;
@@ -146,9 +148,20 @@ public class Enemy : MonoBehaviour
             case Archetype.Runner:
                 maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * 0.65f));
                 moveSpeed *= 1.55f;
+                m_score = Mathf.CeilToInt(m_score * 1.5f);
                 transform.localScale = m_base_root_scale * 0.78f;
                 m_visual_color = new Color(0.78f, 1f, 0.48f);
                 m_walk_bob *= 1.15f;
+                break;
+            case Archetype.Elite:
+                maxHp = Mathf.CeilToInt(maxHp * 3.2f);
+                moveSpeed *= 0.82f;
+                m_score *= 3;
+                m_experience = Mathf.Max(3, m_experience * 3);
+                transform.localScale = m_base_root_scale * 1.65f;
+                m_visual_color = new Color(0.72f, 0.48f, 1f);
+                m_walk_bob *= 0.65f;
+                m_walk_tilt *= 0.75f;
                 break;
             default:
                 transform.localScale = m_base_root_scale;

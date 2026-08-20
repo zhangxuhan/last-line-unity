@@ -135,7 +135,7 @@ public class StageLoop : MonoBehaviour
         get
         {
             float interval = m_base_spawn_interval
-                * Mathf.Pow(m_spawn_interval_multiplier_per_stage, GetDifficultyStage());
+                * Mathf.Pow(m_spawn_interval_multiplier_per_stage, GetDifficultyProgress());
             return Mathf.Max(m_min_spawn_interval, interval);
         }
     }
@@ -241,9 +241,9 @@ public class StageLoop : MonoBehaviour
 
     public void GetCurrentEnemyStats(out int maxHp, out float moveSpeed)
     {
-        int stage = GetDifficultyStage();
-        maxHp = Mathf.Max(1, Mathf.CeilToInt(m_base_enemy_hp * Mathf.Pow(m_hp_multiplier_per_stage, stage)));
-        moveSpeed = Mathf.Max(0f, m_base_enemy_speed * Mathf.Pow(m_speed_multiplier_per_stage, stage));
+        float progress = GetDifficultyProgress();
+        maxHp = Mathf.Max(1, Mathf.CeilToInt(m_base_enemy_hp * Mathf.Pow(m_hp_multiplier_per_stage, progress)));
+        moveSpeed = Mathf.Max(0f, m_base_enemy_speed * Mathf.Pow(m_speed_multiplier_per_stage, progress));
     }
 
     public int DifficultyStage => GetDifficultyStage();
@@ -532,6 +532,11 @@ public class StageLoop : MonoBehaviour
     private int GetDifficultyStage()
     {
         return Mathf.Max(0, Mathf.FloorToInt(m_survival_time / m_difficulty_stage_seconds));
+    }
+
+    private float GetDifficultyProgress()
+    {
+        return Mathf.Max(0f, m_survival_time / m_difficulty_stage_seconds);
     }
 
     private float GetCameraBottom()
