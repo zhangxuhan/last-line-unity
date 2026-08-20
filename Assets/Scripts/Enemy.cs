@@ -74,10 +74,9 @@ public class Enemy : MonoBehaviour
     {
         if (!m_initialized || m_is_settled || !m_stage_loop || !m_stage_loop.IsPlaying || damage <= 0) return;
 
-        float displayedDamage = Mathf.Min(m_current_hp, damage);
         m_current_hp -= damage;
         m_stage_loop.Feedback?.PlayHit(transform.position);
-        m_stage_loop.Feedback?.ShowDamage(transform.position, displayedDamage, isCritical);
+        m_stage_loop.Feedback?.ShowDamage(transform.position, damage, isCritical);
         if (m_hit_feedback != null) StopCoroutine(m_hit_feedback);
         if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
         if (m_visual) m_visual.localScale = m_visual_base_scale;
