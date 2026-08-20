@@ -93,16 +93,6 @@ public class StageLoop : MonoBehaviour
     [SerializeField, Min(1)] private int m_max_breaches = 3;
     [SerializeField, Range(1, 8)] private int m_defense_bomb_count = 5;
 
-    [Header("Difficulty")]
-    [SerializeField, Min(0.1f)] private float m_base_spawn_interval = 1.4f;
-    [SerializeField, Min(0.1f)] private float m_min_spawn_interval = 0.5f;
-    [SerializeField, Min(1)] private int m_base_enemy_hp = 30;
-    [SerializeField, Min(0f)] private float m_base_enemy_speed = 0.9f;
-    [SerializeField, Min(1f)] private float m_difficulty_stage_seconds = 30f;
-    [SerializeField, Min(1f)] private float m_hp_multiplier_per_stage = 1.2f;
-    [SerializeField, Min(1f)] private float m_speed_multiplier_per_stage = 1.08f;
-    [SerializeField, Range(0.01f, 1f)] private float m_spawn_interval_multiplier_per_stage = 0.9f;
-
     private Coroutine m_stage_coroutine;
     private Coroutine m_upgrade_panel_animation;
     private GameFeedback m_feedback;
@@ -165,9 +155,10 @@ public class StageLoop : MonoBehaviour
     {
         get
         {
-            float interval = m_base_spawn_interval
-                * Mathf.Pow(m_spawn_interval_multiplier_per_stage, GetDifficultyProgress());
-            return Mathf.Max(m_min_spawn_interval, interval);
+            GameBalanceConfig.DifficultyTable difficulty = GameBalanceConfig.Current.difficulty;
+            float interval = difficulty.baseSpawnInterval
+                * Mathf.Pow(difficulty.spawnIntervalMultiplierPerStage, GetDifficultyProgress());
+            return Mathf.Max(difficulty.minimumSpawnInterval, interval);
         }
     }
 
@@ -282,8 +273,9 @@ public class StageLoop : MonoBehaviour
     public void GetCurrentEnemyStats(out int maxHp, out float moveSpeed)
     {
         float progress = GetDifficultyProgress();
-        maxHp = Mathf.Max(1, Mathf.CeilToInt(m_base_enemy_hp * Mathf.Pow(m_hp_multiplier_per_stage, progress)));
-        moveSpeed = Mathf.Max(0f, m_base_enemy_speed * Mathf.Pow(m_speed_multiplier_per_stage, progress));
+        GameBalanceConfig.DifficultyTable difficulty = GameBalanceConfig.Current.difficulty;
+        maxHp = Mathf.Max(1, Mathf.CeilToInt(difficulty.baseEnemyHp * Mathf.Pow(difficulty.hpMultiplierPerStage, progress)));
+        moveSpeed = Mathf.Max(0f, difficulty.baseEnemySpeed * Mathf.Pow(difficulty.speedMultiplierPerStage, progress));
     }
 
     public int DifficultyStage => GetDifficultyStage();
@@ -640,12 +632,12 @@ public class StageLoop : MonoBehaviour
 
     private int GetDifficultyStage()
     {
-        return Mathf.Max(0, Mathf.FloorToInt(m_survival_time / m_difficulty_stage_seconds));
+        return Mathf.Max(0, Mathf.FloorToInt(m_survival_time / Mathf.Max(1f, GameBalanceConfig.Current.difficulty.stageSeconds)));
     }
 
     private float GetDifficultyProgress()
     {
-        return Mathf.Max(0f, m_survival_time / m_difficulty_stage_seconds);
+        return Mathf.Max(0f, m_survival_time / Mathf.Max(1f, GameBalanceConfig.Current.difficulty.stageSeconds));
     }
 
     private float GetCameraBottom()
@@ -1267,14 +1259,6 @@ public class StageLoop : MonoBehaviour
         m_defense_bottom_offset = Mathf.Max(0f, m_defense_bottom_offset);
         m_defense_bomb_count = Mathf.Clamp(m_defense_bomb_count, 1, 8);
         m_max_breaches = Mathf.Max(1, m_max_breaches);
-        m_base_spawn_interval = Mathf.Max(0.1f, m_base_spawn_interval);
-        m_min_spawn_interval = Mathf.Clamp(m_min_spawn_interval, 0.1f, m_base_spawn_interval);
-        m_base_enemy_hp = Mathf.Max(1, m_base_enemy_hp);
-        m_base_enemy_speed = Mathf.Max(0f, m_base_enemy_speed);
-        m_difficulty_stage_seconds = Mathf.Max(1f, m_difficulty_stage_seconds);
-        m_hp_multiplier_per_stage = Mathf.Max(1f, m_hp_multiplier_per_stage);
-        m_speed_multiplier_per_stage = Mathf.Max(1f, m_speed_multiplier_per_stage);
-        m_spawn_interval_multiplier_per_stage = Mathf.Clamp(m_spawn_interval_multiplier_per_stage, 0.01f, 1f);
     }
 
     private void OnDisable()

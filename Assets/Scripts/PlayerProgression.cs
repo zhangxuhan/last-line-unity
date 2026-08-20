@@ -1,9 +1,10 @@
 using System;
+using UnityEngine;
 
 public sealed class PlayerProgression
 {
     public const int InitialLevel = 1;
-    public const int InitialExperienceRequirement = 5;
+    public static int InitialExperienceRequirement => Mathf.Max(1, GameBalanceConfig.Current.progression.initialExperience);
     private const int MaxLevelUpsPerAward = 1024;
 
     public int Level { get; private set; }
@@ -68,13 +69,15 @@ public sealed class PlayerProgression
 
     public static int CalculateNextRequirement(int newLevel, int currentRequirement)
     {
+        GameBalanceConfig.ProgressionTable progression = GameBalanceConfig.Current.progression;
         switch (newLevel)
         {
-            case 2: return 8;
-            case 3: return 12;
-            case 4: return 17;
+            case 2: return Mathf.Max(1, progression.level2Experience);
+            case 3: return Mathf.Max(1, progression.level3Experience);
+            case 4: return Mathf.Max(1, progression.level4Experience);
             default:
-                long scaled = (long)Math.Ceiling(Math.Max(1, currentRequirement) * 1.3d);
+                long scaled = (long)Math.Ceiling(Math.Max(1, currentRequirement)
+                    * Math.Max(1d, progression.laterLevelMultiplier));
                 return (int)Math.Min(scaled, int.MaxValue);
         }
     }

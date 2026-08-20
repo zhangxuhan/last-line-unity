@@ -47,8 +47,3 @@ MonoBehaviour:
   m_horizontal_margin: 0.5
   m_top_margin: 0.5
   m_min_horizontal_separation: 0.8
-  m_initial_wave_budget: 7
-  m_budget_growth_per_wave: 3
-  m_max_active_enemies: 16
-  m_wave_rest_seconds: 3
-  m_debug_seed: 1337

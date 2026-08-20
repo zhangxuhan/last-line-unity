@@ -12,14 +12,6 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField, Min(0f)] private float m_top_margin = 0.5f;
     [SerializeField, Min(0f)] private float m_min_horizontal_separation = 0.8f;
 
-    [Header("Wave Rules")]
-    [SerializeField, Min(1)] private int m_initial_wave_budget = 7;
-    [SerializeField, Min(1)] private int m_budget_growth_per_wave = 3;
-    [SerializeField, Min(1)] private int m_max_active_enemies = 16;
-    [SerializeField, Min(0f)] private float m_wave_rest_seconds = 3f;
-    [SerializeField, Tooltip("Fixed gameplay seed for repeatable debug runs.")]
-    private int m_debug_seed = 1337;
-
     private StageLoop m_stage_loop;
     private Camera m_camera;
     private Transform m_spawn_parent;
@@ -34,7 +26,7 @@ public class EnemySpawner : MonoBehaviour
         m_stage_loop = stageLoop;
         m_camera = gameCamera ? gameCamera : Camera.main;
         m_spawn_parent = spawnParent;
-        m_random = new System.Random(m_debug_seed);
+        m_random = new System.Random(GameBalanceConfig.Current.waves.debugSeed);
         m_has_last_spawn = false;
         m_spawn_coroutine = StartCoroutine(MainCoroutine());
     }
@@ -55,13 +47,14 @@ public class EnemySpawner : MonoBehaviour
             if (!IsSessionActive()) break;
 
             wave++;
-            int budget = m_initial_wave_budget + (wave - 1) * m_budget_growth_per_wave;
+            GameBalanceConfig.WaveTable waves = GameBalanceConfig.Current.waves;
+            int budget = waves.initialBudget + (wave - 1) * waves.budgetGrowthPerWave;
             int remainingBudget = budget;
             m_stage_loop.SetWaveStatus(wave, budget, "CLEAR THE WAVE");
 
             while (remainingBudget > 0 && IsSessionActive())
             {
-                if (!m_stage_loop.IsPlaying || Enemy.CountActive(m_stage_loop) >= m_max_active_enemies)
+                if (!m_stage_loop.IsPlaying || Enemy.CountActive(m_stage_loop) >= waves.maximumActiveEnemies)
                 {
                     yield return null;
                     continue;
@@ -76,7 +69,7 @@ public class EnemySpawner : MonoBehaviour
             while (IsSessionActive() && Enemy.CountActive(m_stage_loop) > 0) yield return null;
             if (!IsSessionActive()) break;
 
-            float restRemaining = m_wave_rest_seconds;
+            float restRemaining = waves.restSeconds;
             int lastShownSecond = -1;
             while (restRemaining > 0f && IsSessionActive())
             {
@@ -86,7 +79,7 @@ public class EnemySpawner : MonoBehaviour
                     if (shownSecond != lastShownSecond)
                     {
                         lastShownSecond = shownSecond;
-                        int nextBudget = m_initial_wave_budget + wave * m_budget_growth_per_wave;
+                        int nextBudget = waves.initialBudget + wave * waves.budgetGrowthPerWave;
                         m_stage_loop.SetWaveStatus(wave, budget,
                             $"NEXT WAVE {wave + 1}  •  {shownSecond}s  •  BUDGET {nextBudget}");
                     }
@@ -126,33 +119,31 @@ public class EnemySpawner : MonoBehaviour
 
     private Enemy.Archetype RollAffordableArchetype(int wave, int remainingBudget)
     {
-        float normalWeight = Mathf.Max(20f, 55f - wave * 2f);
-        float runnerWeight = wave >= 2 ? 14f + Mathf.Min(12f, wave) : 0f;
-        float weaverWeight = wave >= 2 && remainingBudget >= GetBudgetCost(Enemy.Archetype.Weaver)
-            ? 12f + Mathf.Min(10f, wave) : 0f;
-        float bruteWeight = wave >= 3 && remainingBudget >= GetBudgetCost(Enemy.Archetype.Brute)
-            ? 10f + Mathf.Min(12f, wave) : 0f;
-        float eliteWeight = wave >= 5 && remainingBudget >= GetBudgetCost(Enemy.Archetype.Elite)
-            ? 4f + Mathf.Min(10f, (wave - 5) * 2f) : 0f;
-        float total = normalWeight + runnerWeight + weaverWeight + bruteWeight + eliteWeight;
+        GameBalanceConfig.EnemyRow[] rows = GameBalanceConfig.Current.enemies;
+        float total = 0f;
+        foreach (GameBalanceConfig.EnemyRow row in rows)
+            if (row != null && wave >= row.unlockWave && remainingBudget >= row.budgetCost)
+                total += GetWaveWeight(row, wave);
+        if (total <= 0f) return Enemy.Archetype.Normal;
+
         double roll = m_random.NextDouble() * total;
-        if ((roll -= eliteWeight) < 0d) return Enemy.Archetype.Elite;
-        if ((roll -= bruteWeight) < 0d) return Enemy.Archetype.Brute;
-        if ((roll -= weaverWeight) < 0d) return Enemy.Archetype.Weaver;
-        if ((roll -= runnerWeight) < 0d) return Enemy.Archetype.Runner;
+        foreach (GameBalanceConfig.EnemyRow row in rows)
+        {
+            if (row == null || wave < row.unlockWave || remainingBudget < row.budgetCost) continue;
+            roll -= GetWaveWeight(row, wave);
+            if (roll <= 0d) return row.archetype;
+        }
         return Enemy.Archetype.Normal;
     }
 
-    private static int GetBudgetCost(Enemy.Archetype archetype)
+    private static float GetWaveWeight(GameBalanceConfig.EnemyRow row, int wave)
     {
-        switch (archetype)
-        {
-            case Enemy.Archetype.Brute:
-            case Enemy.Archetype.Weaver: return 2;
-            case Enemy.Archetype.Elite: return 4;
-            default: return 1;
-        }
+        float weight = row.baseWeight + Mathf.Max(0, wave - row.unlockWave) * row.weightPerWave;
+        return Mathf.Max(0f, Mathf.Clamp(weight, row.minimumWeight, row.maximumWeight));
     }
+
+    private static int GetBudgetCost(Enemy.Archetype archetype)
+        => Mathf.Max(1, GameBalanceConfig.Current.GetEnemy(archetype).budgetCost);
 
     private Vector3 GetSpawnPosition()
     {
@@ -178,10 +169,6 @@ public class EnemySpawner : MonoBehaviour
         m_horizontal_margin = Mathf.Max(0f, m_horizontal_margin);
         m_top_margin = Mathf.Max(0f, m_top_margin);
         m_min_horizontal_separation = Mathf.Max(0f, m_min_horizontal_separation);
-        m_initial_wave_budget = Mathf.Max(1, m_initial_wave_budget);
-        m_budget_growth_per_wave = Mathf.Max(1, m_budget_growth_per_wave);
-        m_max_active_enemies = Mathf.Max(1, m_max_active_enemies);
-        m_wave_rest_seconds = Mathf.Max(0f, m_wave_rest_seconds);
     }
 
     private void OnDrawGizmos()

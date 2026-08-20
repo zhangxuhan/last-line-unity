@@ -33,6 +33,8 @@ public class Enemy : MonoBehaviour
     private float m_lateral_origin_x;
     private float m_lateral_phase;
     private float m_lateral_elapsed;
+    private float m_lateral_amplitude;
+    private float m_lateral_frequency;
     private static readonly List<Enemy> s_active_enemies = new List<Enemy>();
 
     public int ExperienceReward => m_experience;
@@ -71,7 +73,8 @@ public class Enemy : MonoBehaviour
         if (m_archetype == Archetype.Weaver)
         {
             m_lateral_elapsed += Time.deltaTime;
-            position.x = m_lateral_origin_x + Mathf.Sin(m_lateral_elapsed * 2.15f + m_lateral_phase) * 0.38f;
+            position.x = m_lateral_origin_x
+                + Mathf.Sin(m_lateral_elapsed * m_lateral_frequency + m_lateral_phase) * m_lateral_amplitude;
         }
         transform.position = position;
         UpdateWalkVisual();
@@ -157,53 +160,32 @@ public class Enemy : MonoBehaviour
 
     private void ApplyArchetype(Archetype archetype, ref int maxHp, ref float moveSpeed)
     {
+        GameBalanceConfig.EnemyRow balance = GameBalanceConfig.Current.GetEnemy(archetype);
+        maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * balance.hpMultiplier));
+        moveSpeed *= balance.speedMultiplier;
+        m_score = Mathf.CeilToInt(m_score * balance.scoreMultiplier);
+        m_experience = Mathf.Max(1, m_experience * balance.experienceMultiplier);
+        transform.localScale = m_base_root_scale * balance.rootScale;
+        m_visual.localScale = new Vector3(balance.visualScale.x, balance.visualScale.y, 1f);
+        m_visual_color = balance.color;
+        m_lateral_amplitude = Mathf.Max(0f, balance.lateralAmplitude);
+        m_lateral_frequency = Mathf.Max(0.01f, balance.lateralFrequency);
+
         switch (archetype)
         {
             case Archetype.Brute:
-                maxHp = Mathf.CeilToInt(maxHp * 2f);
-                moveSpeed *= 0.68f;
-                m_score *= 2;
-                m_experience = Mathf.Max(2, m_experience * 2);
-                transform.localScale = m_base_root_scale * 1.45f;
-                m_visual.localScale = new Vector3(1.74f, 1.50f, 1f);
-                m_visual_color = new Color(0.72f, 0.40f, 0.32f);
                 m_walk_bob *= 0.75f;
                 break;
             case Archetype.Runner:
-                maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * 0.65f));
-                moveSpeed *= 1.55f;
-                m_score = Mathf.CeilToInt(m_score * 1.5f);
-                transform.localScale = m_base_root_scale * 0.78f;
-                m_visual.localScale = new Vector3(1.28f, 1.72f, 1f);
-                m_visual_color = new Color(0.78f, 1f, 0.48f);
                 m_walk_bob *= 1.15f;
                 break;
             case Archetype.Elite:
-                maxHp = Mathf.CeilToInt(maxHp * 3.2f);
-                moveSpeed *= 0.82f;
-                m_score *= 3;
-                m_experience = Mathf.Max(3, m_experience * 3);
-                transform.localScale = m_base_root_scale * 1.65f;
-                m_visual.localScale = new Vector3(1.72f, 1.72f, 1f);
-                m_visual_color = new Color(0.72f, 0.48f, 1f);
                 m_walk_bob *= 0.65f;
                 m_walk_tilt *= 0.75f;
                 break;
             case Archetype.Weaver:
-                maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * 0.90f));
-                moveSpeed *= 1.05f;
-                m_score = Mathf.CeilToInt(m_score * 1.75f);
-                m_experience = Mathf.Max(2, m_experience * 2);
-                transform.localScale = m_base_root_scale * 0.90f;
-                m_visual.localScale = new Vector3(1.36f, 1.62f, 1f);
-                m_visual_color = new Color(0.28f, 0.90f, 1f);
                 m_walk_bob *= 0.90f;
                 m_walk_tilt *= 1.25f;
-                break;
-            default:
-                transform.localScale = m_base_root_scale;
-                m_visual.localScale = Vector3.one * 1.55f;
-                m_visual_color = Color.white;
                 break;
         }
         m_visual_base_scale = m_visual.localScale;
@@ -269,7 +251,7 @@ public class Enemy : MonoBehaviour
         float step = Mathf.Sin(m_walk_phase);
         m_visual.localPosition = m_visual_home + Vector3.up * (Mathf.Abs(step) * m_walk_bob);
         float weaveTilt = m_archetype == Archetype.Weaver
-            ? Mathf.Cos(m_lateral_elapsed * 2.15f + m_lateral_phase) * 5f : 0f;
+            ? Mathf.Cos(m_lateral_elapsed * m_lateral_frequency + m_lateral_phase) * 5f : 0f;
         m_visual.localRotation = Quaternion.Euler(0f, 0f, 270f + step * m_walk_tilt + weaveTilt);
     }
 

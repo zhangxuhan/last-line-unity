@@ -142,11 +142,4 @@ MonoBehaviour:
   m_prefab_player_bullet: {fileID: 7941598295554223428, guid: 489ca4fe60917514a823a5455dab0a38, type: 3}
   m_move_speed: 4
   m_viewport_padding: 0.02
-  m_weapon:
-    damage: 10
-    shotInterval: 0.35
-    bulletSpeed: 10
-    projectileCount: 1
-    penetration: 0
-    spreadAngleStep: 8
   m_muzzle_offset: 0.55

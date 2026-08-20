@@ -28,10 +28,10 @@ public readonly struct WeaponUpgradeOption
 
 public sealed class WeaponRuntimeState
 {
-    public const float MinimumFireInterval = 0.12f;
-    public const int MaximumProjectileCount = 5;
-    public const int MaximumPenetrationCount = 3;
-    public const float MaximumCriticalChance = 0.75f;
+    public static float MinimumFireInterval => GameBalanceConfig.Current.upgradeRules.minimumFireInterval;
+    public static int MaximumProjectileCount => GameBalanceConfig.Current.upgradeRules.maximumProjectileCount;
+    public static int MaximumPenetrationCount => GameBalanceConfig.Current.upgradeRules.maximumPenetrationCount;
+    public static float MaximumCriticalChance => GameBalanceConfig.Current.maximumCriticalChance;
     private const float LimitEpsilon = 0.0001f;
     private readonly int[] m_upgrade_levels = new int[Enum.GetValues(typeof(WeaponUpgradeType)).Length];
 
@@ -41,10 +41,13 @@ public sealed class WeaponRuntimeState
     public int ProjectileCount { get; private set; }
     public int PenetrationCount { get; private set; }
     public float CriticalChance { get; private set; }
-    public float CriticalMultiplier => 2f;
+    public float CriticalMultiplier => GameBalanceConfig.Current.upgradeRules.criticalDamageMultiplier;
     public int BurstCount { get; private set; } = 1;
     public int LightningLevel { get; private set; }
-    public float LightningInterval => LightningLevel <= 0 ? float.PositiveInfinity : Math.Max(2.5f, 6f - (LightningLevel - 1) * 1.25f);
+    public float LightningInterval => LightningLevel <= 0 ? float.PositiveInfinity
+        : Math.Max(GameBalanceConfig.Current.upgradeRules.lightningMinimumInterval,
+            GameBalanceConfig.Current.upgradeRules.lightningBaseInterval
+            - (LightningLevel - 1) * GameBalanceConfig.Current.upgradeRules.lightningIntervalReductionPerLevel);
     public float SpreadAngleStep { get; }
 
     public WeaponRuntimeState(float damage, float fireInterval, float projectileSpeed,
@@ -66,8 +69,8 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.ProjectileCount: return ProjectileCount < MaximumProjectileCount;
             case WeaponUpgradeType.Penetration: return PenetrationCount < MaximumPenetrationCount;
             case WeaponUpgradeType.CriticalChance: return CriticalChance < MaximumCriticalChance - LimitEpsilon;
-            case WeaponUpgradeType.BurstFire: return BurstCount < 3;
-            case WeaponUpgradeType.Lightning: return LightningLevel < 3;
+            case WeaponUpgradeType.BurstFire: return BurstCount < GameBalanceConfig.Current.upgradeRules.maximumBurstCount;
+            case WeaponUpgradeType.Lightning: return LightningLevel < GameBalanceConfig.Current.upgradeRules.maximumLightningLevel;
             default: return true;
         }
     }
@@ -83,8 +86,8 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.ProjectileCount: ProjectileCount = Math.Min(MaximumProjectileCount, ProjectileCount + GetDiscreteIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.Penetration: PenetrationCount = Math.Min(MaximumPenetrationCount, PenetrationCount + GetDiscreteIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.CriticalChance: CriticalChance = Math.Min(MaximumCriticalChance, CriticalChance + GetScaledCriticalChanceIncrease(choice)); break;
-            case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(3, BurstCount + GetAbilityIncrease(choice.Rarity)); break;
-            case WeaponUpgradeType.Lightning: LightningLevel = Math.Min(3, LightningLevel + GetAbilityIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(GameBalanceConfig.Current.upgradeRules.maximumBurstCount, BurstCount + GetAbilityIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.Lightning: LightningLevel = Math.Min(GameBalanceConfig.Current.upgradeRules.maximumLightningLevel, LightningLevel + GetAbilityIncrease(choice.Rarity)); break;
             default: return false;
         }
         m_upgrade_levels[(int)choice.Type]++;
@@ -112,8 +115,8 @@ public sealed class WeaponRuntimeState
         {
             case WeaponUpgradeType.ProjectileCount: return Math.Min(MaximumProjectileCount, ProjectileCount + increase);
             case WeaponUpgradeType.Penetration: return Math.Min(MaximumPenetrationCount, PenetrationCount + increase);
-            case WeaponUpgradeType.BurstFire: return Math.Min(3, BurstCount + GetAbilityIncrease(choice.Rarity));
-            case WeaponUpgradeType.Lightning: return Math.Min(3, LightningLevel + GetAbilityIncrease(choice.Rarity));
+            case WeaponUpgradeType.BurstFire: return Math.Min(GameBalanceConfig.Current.upgradeRules.maximumBurstCount, BurstCount + GetAbilityIncrease(choice.Rarity));
+            case WeaponUpgradeType.Lightning: return Math.Min(GameBalanceConfig.Current.upgradeRules.maximumLightningLevel, LightningLevel + GetAbilityIncrease(choice.Rarity));
             default: return 0;
         }
     }
@@ -134,20 +137,19 @@ public sealed class WeaponRuntimeState
         => GetCriticalChanceIncrease(choice.Rarity) * GetRepeatBonus(choice.Type);
 
     private float GetRepeatBonus(WeaponUpgradeType type)
-        => Math.Min(1.60f, 1f + GetUpgradeLevel(type) * 0.20f);
+        => Math.Min(GameBalanceConfig.Current.maximumRepeatBonus,
+            1f + GetUpgradeLevel(type) * GameBalanceConfig.Current.repeatBonusPerLevel);
 
     public static float GetPowerMultiplier(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 1.20f : rarity == UpgradeRarity.SR ? 1.30f
-            : rarity == UpgradeRarity.SSR ? 1.45f : 1.65f;
+        => GameBalanceConfig.Current.GetRarity(rarity).powerMultiplier;
     public static float GetIntervalMultiplier(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 0.88f : rarity == UpgradeRarity.SR ? 0.82f
-            : rarity == UpgradeRarity.SSR ? 0.72f : 0.62f;
+        => GameBalanceConfig.Current.GetRarity(rarity).fireIntervalMultiplier;
     public static int GetDiscreteIncrease(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.UR ? 3 : rarity == UpgradeRarity.SSR ? 2 : 1;
-    public static int GetAbilityIncrease(UpgradeRarity rarity) => rarity == UpgradeRarity.UR ? 2 : 1;
+        => GameBalanceConfig.Current.GetRarity(rarity).discreteIncrease;
+    public static int GetAbilityIncrease(UpgradeRarity rarity)
+        => GameBalanceConfig.Current.GetRarity(rarity).abilityIncrease;
     public static float GetCriticalChanceIncrease(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 0.10f : rarity == UpgradeRarity.SR ? 0.15f
-            : rarity == UpgradeRarity.SSR ? 0.25f : 0.35f;
+        => GameBalanceConfig.Current.GetRarity(rarity).criticalChanceIncrease;
 }
 
 public static class WeaponUpgradeSystem
@@ -190,28 +192,23 @@ public static class WeaponUpgradeSystem
     }
 
     private static float GetTypeWeight(WeaponUpgradeType type)
-    {
-        switch (type)
-        {
-            case WeaponUpgradeType.Damage: return 1.35f;
-            case WeaponUpgradeType.FireInterval: return 1.20f;
-            case WeaponUpgradeType.CriticalChance: return 1.00f;
-            case WeaponUpgradeType.ProjectileSpeed:
-            case WeaponUpgradeType.Penetration: return 0.90f;
-            case WeaponUpgradeType.ProjectileCount: return 0.65f;
-            case WeaponUpgradeType.Lightning: return 0.45f;
-            case WeaponUpgradeType.BurstFire: return 0.28f;
-            default: return 1f;
-        }
-    }
+        => Math.Max(0f, GameBalanceConfig.Current.GetUpgradeType(type).offerWeight);
 
     public static UpgradeRarity RollRarity(Random random)
     {
-        int roll = random.Next(100);
-        if (roll < 35) return UpgradeRarity.R;
-        if (roll < 73) return UpgradeRarity.SR;
-        if (roll < 93) return UpgradeRarity.SSR;
-        return UpgradeRarity.UR;
+        GameBalanceConfig.RarityRow[] rows = GameBalanceConfig.Current.rarities;
+        int totalWeight = 0;
+        foreach (GameBalanceConfig.RarityRow row in rows)
+            if (row != null) totalWeight += Math.Max(0, row.rollWeight);
+        if (totalWeight <= 0) return UpgradeRarity.R;
+        int roll = random.Next(totalWeight);
+        foreach (GameBalanceConfig.RarityRow row in rows)
+        {
+            if (row == null) continue;
+            roll -= Math.Max(0, row.rollWeight);
+            if (roll < 0) return row.rarity;
+        }
+        return UpgradeRarity.R;
     }
 
     public static UpgradeRarity RollRarity(WeaponUpgradeType type, Random random)
@@ -222,15 +219,7 @@ public static class WeaponUpgradeSystem
     }
 
     public static UpgradeRarity GetMinimumRarity(WeaponUpgradeType type)
-    {
-        switch (type)
-        {
-            case WeaponUpgradeType.BurstFire: return UpgradeRarity.SSR;
-            case WeaponUpgradeType.ProjectileCount:
-            case WeaponUpgradeType.Lightning: return UpgradeRarity.SR;
-            default: return UpgradeRarity.R;
-        }
-    }
+        => GameBalanceConfig.Current.GetUpgradeType(type).minimumRarity;
 
     public static WeaponUpgradeOption BuildOption(WeaponUpgradeChoice choice, WeaponRuntimeState weapon)
     {

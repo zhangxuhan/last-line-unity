@@ -5,24 +5,12 @@ using UnityEngine.EventSystems;
 
 public class Player : MonoBehaviour
 {
-    [Serializable]
-    public class WeaponParameters
-    {
-        [Min(0f)] public float damage = 10f;
-        [Min(0.01f)] public float shotInterval = 0.35f;
-        [Min(0.01f)] public float bulletSpeed = 10f;
-        [Min(1)] public int projectileCount = 1;
-        [Min(0)] public int penetration = 0;
-        [Min(0f)] public float spreadAngleStep = 8f;
-    }
-
     [Header("Prefab")]
     [SerializeField] private PlayerBullet m_prefab_player_bullet;
     [Header("Movement")]
     [SerializeField, Min(0f)] private float m_move_speed = 4f;
     [SerializeField, Range(0f, 0.25f)] private float m_viewport_padding = 0.02f;
     [Header("Base Weapon")]
-    [SerializeField] private WeaponParameters m_weapon = new WeaponParameters();
     [SerializeField, Min(0f)] private float m_muzzle_offset = 0.55f;
 
     private Coroutine m_main_coroutine;
@@ -44,8 +32,9 @@ public class Player : MonoBehaviour
     {
         SetupVisual();
         InitializeBulletPool();
-        m_runtime_weapon = new WeaponRuntimeState(m_weapon.damage, m_weapon.shotInterval,
-            m_weapon.bulletSpeed, m_weapon.projectileCount, m_weapon.penetration, m_weapon.spreadAngleStep);
+        GameBalanceConfig.BaseWeaponTable weapon = GameBalanceConfig.Current.baseWeapon;
+        m_runtime_weapon = new WeaponRuntimeState(weapon.damage, weapon.shotInterval,
+            weapon.bulletSpeed, weapon.projectileCount, weapon.penetration, weapon.spreadAngleStep);
         ResumeRunning();
     }
 
@@ -160,7 +149,8 @@ public class Player : MonoBehaviour
         {
             if (!StageLoop.Instance || !StageLoop.Instance.IsPlaying) break;
             FireVolley();
-            if (burst + 1 < burstCount) yield return new WaitForSeconds(0.065f);
+            if (burst + 1 < burstCount)
+                yield return new WaitForSeconds(GameBalanceConfig.Current.upgradeRules.burstShotDelay);
         }
         m_burst_coroutine = null;
     }
@@ -236,11 +226,5 @@ public class Player : MonoBehaviour
     {
         m_move_speed = Mathf.Max(0f, m_move_speed);
         m_muzzle_offset = Mathf.Max(0f, m_muzzle_offset);
-        m_weapon.damage = Mathf.Max(0f, m_weapon.damage);
-        m_weapon.shotInterval = Mathf.Max(WeaponRuntimeState.MinimumFireInterval, m_weapon.shotInterval);
-        m_weapon.bulletSpeed = Mathf.Max(0.01f, m_weapon.bulletSpeed);
-        m_weapon.projectileCount = Mathf.Clamp(m_weapon.projectileCount, 1, WeaponRuntimeState.MaximumProjectileCount);
-        m_weapon.penetration = Mathf.Clamp(m_weapon.penetration, 0, WeaponRuntimeState.MaximumPenetrationCount);
-        m_weapon.spreadAngleStep = Mathf.Max(0f, m_weapon.spreadAngleStep);
     }
 }

@@ -1,0 +1,175 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eae83a25bca14aa294741e56ab60fa59, type: 3}
+  m_Name: GameBalanceConfig
+  m_EditorClassIdentifier:
+  difficulty:
+    stageSeconds: 30
+    baseSpawnInterval: 1.4
+    minimumSpawnInterval: 0.5
+    baseEnemyHp: 30
+    baseEnemySpeed: 0.9
+    hpMultiplierPerStage: 1.15
+    speedMultiplierPerStage: 1.05
+    spawnIntervalMultiplierPerStage: 0.92
+  waves:
+    initialBudget: 7
+    budgetGrowthPerWave: 3
+    maximumActiveEnemies: 16
+    restSeconds: 3
+    debugSeed: 1337
+  baseWeapon:
+    damage: 10
+    shotInterval: 0.35
+    bulletSpeed: 10
+    projectileCount: 1
+    penetration: 0
+    spreadAngleStep: 8
+  progression:
+    initialExperience: 5
+    level2Experience: 8
+    level3Experience: 12
+    level4Experience: 17
+    laterLevelMultiplier: 1.3
+  upgradeRules:
+    minimumFireInterval: 0.12
+    maximumProjectileCount: 5
+    maximumPenetrationCount: 3
+    criticalDamageMultiplier: 2
+    maximumBurstCount: 3
+    burstShotDelay: 0.065
+    maximumLightningLevel: 3
+    lightningBaseInterval: 6
+    lightningIntervalReductionPerLevel: 1.25
+    lightningMinimumInterval: 2.5
+  maximumCriticalChance: 0.75
+  repeatBonusPerLevel: 0.2
+  maximumRepeatBonus: 1.6
+  enemies:
+  - archetype: 0
+    unlockWave: 1
+    budgetCost: 1
+    baseWeight: 55
+    weightPerWave: -2
+    minimumWeight: 20
+    maximumWeight: 55
+    hpMultiplier: 1
+    speedMultiplier: 1
+    rootScale: 1
+    visualScale: {x: 1.55, y: 1.55}
+    color: {r: 1, g: 1, b: 1, a: 1}
+    scoreMultiplier: 1
+    experienceMultiplier: 1
+    lateralAmplitude: 0
+    lateralFrequency: 2.15
+  - archetype: 2
+    unlockWave: 2
+    budgetCost: 1
+    baseWeight: 16
+    weightPerWave: 1
+    minimumWeight: 0
+    maximumWeight: 26
+    hpMultiplier: 0.65
+    speedMultiplier: 1.55
+    rootScale: 0.78
+    visualScale: {x: 1.28, y: 1.72}
+    color: {r: 0.78, g: 1, b: 0.48, a: 1}
+    scoreMultiplier: 1.5
+    experienceMultiplier: 1
+    lateralAmplitude: 0
+    lateralFrequency: 2.15
+  - archetype: 4
+    unlockWave: 2
+    budgetCost: 2
+    baseWeight: 14
+    weightPerWave: 1
+    minimumWeight: 0
+    maximumWeight: 22
+    hpMultiplier: 0.9
+    speedMultiplier: 1.05
+    rootScale: 0.9
+    visualScale: {x: 1.36, y: 1.62}
+    color: {r: 0.28, g: 0.9, b: 1, a: 1}
+    scoreMultiplier: 1.75
+    experienceMultiplier: 2
+    lateralAmplitude: 0.38
+    lateralFrequency: 2.15
+  - archetype: 1
+    unlockWave: 3
+    budgetCost: 2
+    baseWeight: 13
+    weightPerWave: 1
+    minimumWeight: 0
+    maximumWeight: 22
+    hpMultiplier: 2
+    speedMultiplier: 0.68
+    rootScale: 1.45
+    visualScale: {x: 1.74, y: 1.5}
+    color: {r: 0.72, g: 0.4, b: 0.32, a: 1}
+    scoreMultiplier: 2
+    experienceMultiplier: 2
+    lateralAmplitude: 0
+    lateralFrequency: 2.15
+  - archetype: 3
+    unlockWave: 5
+    budgetCost: 4
+    baseWeight: 4
+    weightPerWave: 2
+    minimumWeight: 0
+    maximumWeight: 14
+    hpMultiplier: 3.2
+    speedMultiplier: 0.82
+    rootScale: 1.65
+    visualScale: {x: 1.72, y: 1.72}
+    color: {r: 0.72, g: 0.48, b: 1, a: 1}
+    scoreMultiplier: 3
+    experienceMultiplier: 3
+    lateralAmplitude: 0
+    lateralFrequency: 2.15
+  rarities:
+  - rarity: 0
+    rollWeight: 35
+    powerMultiplier: 1.2
+    fireIntervalMultiplier: 0.88
+    discreteIncrease: 1
+    abilityIncrease: 1
+    criticalChanceIncrease: 0.1
+  - rarity: 1
+    rollWeight: 38
+    powerMultiplier: 1.3
+    fireIntervalMultiplier: 0.82
+    discreteIncrease: 1
+    abilityIncrease: 1
+    criticalChanceIncrease: 0.15
+  - rarity: 2
+    rollWeight: 20
+    powerMultiplier: 1.45
+    fireIntervalMultiplier: 0.72
+    discreteIncrease: 2
+    abilityIncrease: 1
+    criticalChanceIncrease: 0.25
+  - rarity: 3
+    rollWeight: 7
+    powerMultiplier: 1.65
+    fireIntervalMultiplier: 0.62
+    discreteIncrease: 3
+    abilityIncrease: 2
+    criticalChanceIncrease: 0.35
+  upgradeTypes:
+  - {type: 0, offerWeight: 1.35, minimumRarity: 0}
+  - {type: 1, offerWeight: 1.2, minimumRarity: 0}
+  - {type: 2, offerWeight: 0.9, minimumRarity: 0}
+  - {type: 3, offerWeight: 0.65, minimumRarity: 1}
+  - {type: 4, offerWeight: 0.9, minimumRarity: 0}
+  - {type: 5, offerWeight: 1, minimumRarity: 0}
+  - {type: 6, offerWeight: 0.28, minimumRarity: 2}
+  - {type: 7, offerWeight: 0.45, minimumRarity: 1}
