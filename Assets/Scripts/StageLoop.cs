@@ -1,5 +1,6 @@
 using System.Collections;
 using System;
+using System.Text;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -67,6 +68,7 @@ public class StageLoop : MonoBehaviour
         Title,
         Playing,
         LevelUp,
+        Skills,
         GameOver
     }
 
@@ -116,6 +118,8 @@ public class StageLoop : MonoBehaviour
     private Text m_experience_percent_text;
     private GameObject m_upgrade_panel;
     private Text m_upgrade_header_text;
+    private GameObject m_skills_panel;
+    private Text m_skills_content_text;
     private readonly Button[] m_upgrade_buttons = new Button[3];
     private readonly Text[] m_upgrade_button_texts = new Text[3];
     private readonly Image[] m_upgrade_button_icons = new Image[3];
@@ -197,7 +201,11 @@ public class StageLoop : MonoBehaviour
                 m_survival_time += Time.deltaTime;
                 RefreshHud();
 
-                if (Input.GetKeyDown(KeyCode.Escape))
+                if (Input.GetKeyDown(KeyCode.Tab))
+                {
+                    OpenSkillsPanel();
+                }
+                else if (Input.GetKeyDown(KeyCode.Escape))
                 {
                     ReturnToTitle();
                     yield break;
@@ -229,6 +237,10 @@ public class StageLoop : MonoBehaviour
                     else if (Input.GetKeyDown(KeyCode.Alpha2)) SelectUpgrade(1);
                     else if (Input.GetKeyDown(KeyCode.Alpha3)) SelectUpgrade(2);
                 }
+            }
+            else if (State == GameState.Skills)
+            {
+                if (Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.Escape)) CloseSkillsPanel();
             }
 
             yield return null;
@@ -557,6 +569,7 @@ public class StageLoop : MonoBehaviour
         if (m_stage_ui_root) m_stage_ui_root.SetActive(state != GameState.Title);
         if (m_game_over_text) m_game_over_text.gameObject.SetActive(state == GameState.GameOver);
         if (m_upgrade_panel) m_upgrade_panel.SetActive(state == GameState.LevelUp);
+        if (m_skills_panel) m_skills_panel.SetActive(state == GameState.Skills);
     }
 
     private IEnumerator AnimateUpgradePanel()
@@ -689,6 +702,7 @@ public class StageLoop : MonoBehaviour
         m_time_text.rectTransform.sizeDelta = new Vector2(230f, 40f);
         m_level_text.rectTransform.sizeDelta = new Vector2(180f, 40f);
         CreateAutoFireToggle();
+        CreateSkillsUi();
         m_experience_text = CreateText("Experience", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
             new Vector2(0f, 44f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
         m_experience_text.rectTransform.sizeDelta = new Vector2(340f, 34f);
@@ -797,6 +811,162 @@ public class StageLoop : MonoBehaviour
     {
         m_auto_fire_enabled = enabled;
         if (m_player) m_player.SetAutoFire(enabled);
+    }
+
+    private void CreateSkillsUi()
+    {
+        Transform uiParent = m_stage_score_text.transform.parent;
+        GameObject buttonObject = new GameObject("SkillsButton",
+            typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+        buttonRect.SetParent(uiParent, false);
+        buttonRect.anchorMin = new Vector2(1f, 1f);
+        buttonRect.anchorMax = new Vector2(1f, 1f);
+        buttonRect.pivot = new Vector2(1f, 1f);
+        buttonRect.anchoredPosition = new Vector2(-10f, -58f);
+        buttonRect.sizeDelta = new Vector2(150f, 42f);
+        Image buttonImage = buttonObject.GetComponent<Image>();
+        buttonImage.color = new Color(0.08f, 0.30f, 0.40f, 0.96f);
+        Outline buttonOutline = buttonObject.AddComponent<Outline>();
+        buttonOutline.effectColor = new Color(0.18f, 0.82f, 0.95f, 0.9f);
+        buttonOutline.effectDistance = new Vector2(2f, -2f);
+        Button button = buttonObject.GetComponent<Button>();
+        button.onClick.AddListener(OpenSkillsPanel);
+        Text label = Instantiate(m_stage_score_text, buttonRect);
+        label.name = "Label";
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = Vector2.zero;
+        label.rectTransform.offsetMax = Vector2.zero;
+        label.alignment = TextAnchor.MiddleCenter;
+        label.text = "SKILLS";
+        label.raycastTarget = false;
+        StyleText(label, 18, Color.white);
+
+        m_skills_panel = new GameObject("SkillsPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform panelRect = m_skills_panel.GetComponent<RectTransform>();
+        panelRect.SetParent(uiParent, false);
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+        Image panelImage = m_skills_panel.GetComponent<Image>();
+        panelImage.color = new Color(0.018f, 0.045f, 0.075f, 0.97f);
+        panelImage.raycastTarget = true;
+
+        Text header = CreateText("SkillsHeader", new Vector2(0.08f, 1f), new Vector2(0.92f, 1f),
+            new Vector2(0f, -42f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter);
+        header.transform.SetParent(panelRect, false);
+        header.rectTransform.sizeDelta = new Vector2(0f, 80f);
+        header.text = "CURRENT BUILD";
+        StyleText(header, 32, new Color(0.35f, 0.94f, 1f));
+
+        m_skills_content_text = Instantiate(m_stage_score_text, panelRect);
+        m_skills_content_text.name = "SkillsContent";
+        m_skills_content_text.rectTransform.anchorMin = new Vector2(0.08f, 0.14f);
+        m_skills_content_text.rectTransform.anchorMax = new Vector2(0.92f, 0.86f);
+        m_skills_content_text.rectTransform.offsetMin = Vector2.zero;
+        m_skills_content_text.rectTransform.offsetMax = Vector2.zero;
+        m_skills_content_text.alignment = TextAnchor.UpperLeft;
+        m_skills_content_text.fontSize = 19;
+        m_skills_content_text.fontStyle = FontStyle.Normal;
+        m_skills_content_text.supportRichText = true;
+        m_skills_content_text.lineSpacing = 1.08f;
+        m_skills_content_text.raycastTarget = false;
+        m_skills_content_text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        m_skills_content_text.verticalOverflow = VerticalWrapMode.Truncate;
+
+        GameObject closeObject = new GameObject("CloseSkills",
+            typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        RectTransform closeRect = closeObject.GetComponent<RectTransform>();
+        closeRect.SetParent(panelRect, false);
+        closeRect.anchorMin = new Vector2(0.5f, 0f);
+        closeRect.anchorMax = new Vector2(0.5f, 0f);
+        closeRect.pivot = new Vector2(0.5f, 0f);
+        closeRect.anchoredPosition = new Vector2(0f, 36f);
+        closeRect.sizeDelta = new Vector2(240f, 54f);
+        closeObject.GetComponent<Image>().color = new Color(0.08f, 0.34f, 0.44f, 1f);
+        closeObject.GetComponent<Button>().onClick.AddListener(CloseSkillsPanel);
+        Text closeLabel = Instantiate(label, closeRect);
+        closeLabel.name = "Label";
+        closeLabel.text = "CLOSE  [TAB]";
+        closeLabel.rectTransform.anchorMin = Vector2.zero;
+        closeLabel.rectTransform.anchorMax = Vector2.one;
+        closeLabel.rectTransform.offsetMin = Vector2.zero;
+        closeLabel.rectTransform.offsetMax = Vector2.zero;
+        m_skills_panel.SetActive(false);
+    }
+
+    private void OpenSkillsPanel()
+    {
+        if (State != GameState.Playing || !m_player || m_player.RuntimeWeapon == null) return;
+        m_player.StopRunning();
+        Time.timeScale = 0f;
+        SetState(GameState.Skills);
+        m_skills_panel.transform.SetAsLastSibling();
+        RefreshSkillsPanel();
+    }
+
+    private void CloseSkillsPanel()
+    {
+        if (State != GameState.Skills) return;
+        Time.timeScale = 1f;
+        SetState(GameState.Playing);
+        if (m_player) m_player.ResumeRunning();
+    }
+
+    private void RefreshSkillsPanel()
+    {
+        if (!m_skills_content_text || !m_player || m_player.RuntimeWeapon == null) return;
+        WeaponRuntimeState weapon = m_player.RuntimeWeapon;
+        var builder = new StringBuilder(768);
+        builder.Append("<size=18><color=#7EDDEC><b>WEAPON STATUS</b></color></size>\n");
+        builder.Append($"Damage {weapon.Damage:0.0}    Interval {weapon.FireInterval:0.00}s    Crit {weapon.CriticalChance * 100f:0}%\n");
+        builder.Append($"Projectiles {weapon.ProjectileCount}    Penetration {weapon.PenetrationCount}    Burst {weapon.BurstCount}\n\n");
+        builder.Append("<size=20><color=#FFFFFF><b>ACQUIRED SKILLS</b></color></size>\n");
+        bool hasSkills = false;
+        foreach (WeaponUpgradeType type in Enum.GetValues(typeof(WeaponUpgradeType)))
+        {
+            int level = weapon.GetUpgradeLevel(type);
+            if (level <= 0) continue;
+            hasSkills = true;
+            builder.Append($"<color=#FFE08A><b>LV {level}  {GetSkillDisplayName(type)}</b></color>\n");
+            builder.Append($"<size=16><color=#E8F5FA>{GetSkillCurrentValue(type, weapon)}</color></size>\n");
+        }
+        if (!hasSkills) builder.Append("<color=#B8CBD3>No upgrades acquired yet.</color>");
+        m_skills_content_text.text = builder.ToString();
+    }
+
+    private static string GetSkillDisplayName(WeaponUpgradeType type)
+    {
+        switch (type)
+        {
+            case WeaponUpgradeType.Damage: return "REINFORCED ROUNDS";
+            case WeaponUpgradeType.FireInterval: return "RAPID FIRE";
+            case WeaponUpgradeType.ProjectileSpeed: return "HIGH-VELOCITY ROUNDS";
+            case WeaponUpgradeType.ProjectileCount: return "MULTISHOT";
+            case WeaponUpgradeType.Penetration: return "PIERCING ROUNDS";
+            case WeaponUpgradeType.CriticalChance: return "CRITICAL ROUNDS";
+            case WeaponUpgradeType.BurstFire: return "BURST MODULE";
+            case WeaponUpgradeType.Lightning: return "AUTO LIGHTNING";
+            default: return type.ToString().ToUpperInvariant();
+        }
+    }
+
+    private static string GetSkillCurrentValue(WeaponUpgradeType type, WeaponRuntimeState weapon)
+    {
+        switch (type)
+        {
+            case WeaponUpgradeType.Damage: return $"Current damage: {weapon.Damage:0.0}";
+            case WeaponUpgradeType.FireInterval: return $"Current fire interval: {weapon.FireInterval:0.00}s";
+            case WeaponUpgradeType.ProjectileSpeed: return $"Current projectile speed: {weapon.ProjectileSpeed:0.0}";
+            case WeaponUpgradeType.ProjectileCount: return $"Current projectiles per volley: {weapon.ProjectileCount}";
+            case WeaponUpgradeType.Penetration: return $"Current extra penetration: {weapon.PenetrationCount}";
+            case WeaponUpgradeType.CriticalChance: return $"Current critical chance: {weapon.CriticalChance * 100f:0}%";
+            case WeaponUpgradeType.BurstFire: return $"Current volleys per attack: {weapon.BurstCount}";
+            case WeaponUpgradeType.Lightning: return $"Lightning level {weapon.LightningLevel}, every {weapon.LightningInterval:0.00}s";
+            default: return string.Empty;
+        }
     }
 
     private static Sprite GetTickSprite()

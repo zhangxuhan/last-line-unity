@@ -55,7 +55,8 @@ public class PlayerBullet : MonoBehaviour, IPoolable
             Despawn();
             return;
         }
-        if (StageLoop.Instance.State == StageLoop.GameState.LevelUp) return;
+        if (StageLoop.Instance.State == StageLoop.GameState.LevelUp
+            || StageLoop.Instance.State == StageLoop.GameState.Skills) return;
 
         if (s_last_physics_sync_frame != Time.frameCount)
         {
