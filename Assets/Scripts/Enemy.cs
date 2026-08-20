@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
-    public enum Archetype { Normal, Brute, Runner, Elite }
+    public enum Archetype { Normal, Brute, Runner, Elite, Weaver }
 
     [Header("Combat")]
     [SerializeField, Min(1)] private int m_max_hp = 30;
@@ -29,6 +29,10 @@ public class Enemy : MonoBehaviour
     private Coroutine m_hit_feedback;
     private Vector3 m_base_root_scale;
     private Color m_visual_color = Color.white;
+    private Archetype m_archetype;
+    private float m_lateral_origin_x;
+    private float m_lateral_phase;
+    private float m_lateral_elapsed;
     private static readonly List<Enemy> s_active_enemies = new List<Enemy>();
 
     public int ExperienceReward => m_experience;
@@ -42,9 +46,13 @@ public class Enemy : MonoBehaviour
     }
 
     public void Initialize(StageLoop stageLoop, int maxHp, float moveSpeed, float defenseLineY,
-        Archetype archetype = Archetype.Normal)
+        Archetype archetype = Archetype.Normal, float movementPhase = 0f)
     {
         m_stage_loop = stageLoop;
+        m_archetype = archetype;
+        m_lateral_origin_x = transform.position.x;
+        m_lateral_phase = movementPhase;
+        m_lateral_elapsed = 0f;
         ApplyArchetype(archetype, ref maxHp, ref moveSpeed);
         m_max_hp = Mathf.Max(1, maxHp);
         m_current_hp = m_max_hp;
@@ -58,7 +66,14 @@ public class Enemy : MonoBehaviour
     {
         if (!m_initialized || m_is_settled || !m_stage_loop || !m_stage_loop.IsPlaying) return;
 
-        transform.position += Vector3.down * m_move_speed * Time.deltaTime;
+        Vector3 position = transform.position;
+        position.y -= m_move_speed * Time.deltaTime;
+        if (m_archetype == Archetype.Weaver)
+        {
+            m_lateral_elapsed += Time.deltaTime;
+            position.x = m_lateral_origin_x + Mathf.Sin(m_lateral_elapsed * 2.15f + m_lateral_phase) * 0.38f;
+        }
+        transform.position = position;
         UpdateWalkVisual();
 
         if (m_stage_loop.TryTriggerDefenseBomb(this)) return;
@@ -127,6 +142,14 @@ public class Enemy : MonoBehaviour
         m_sprite_renderer.sprite = Resources.Load<Sprite>("Task5/Art/zombie");
         m_sprite_renderer.sortingOrder = 1;
         m_visual.localScale = Vector3.one * 1.55f;
+
+        GameObject outlineObject = new GameObject("Silhouette", typeof(SpriteRenderer));
+        outlineObject.transform.SetParent(m_visual, false);
+        outlineObject.transform.localScale = Vector3.one * 1.10f;
+        SpriteRenderer outline = outlineObject.GetComponent<SpriteRenderer>();
+        outline.sprite = m_sprite_renderer.sprite;
+        outline.color = new Color(0.015f, 0.035f, 0.045f, 0.88f);
+        outline.sortingOrder = 0;
         m_visual_base_scale = m_visual.localScale;
         m_visual_home = Vector3.zero;
         m_walk_phase = Random.Range(0f, Mathf.PI * 2f);
@@ -142,6 +165,7 @@ public class Enemy : MonoBehaviour
                 m_score *= 2;
                 m_experience = Mathf.Max(2, m_experience * 2);
                 transform.localScale = m_base_root_scale * 1.45f;
+                m_visual.localScale = new Vector3(1.74f, 1.50f, 1f);
                 m_visual_color = new Color(0.72f, 0.40f, 0.32f);
                 m_walk_bob *= 0.75f;
                 break;
@@ -150,6 +174,7 @@ public class Enemy : MonoBehaviour
                 moveSpeed *= 1.55f;
                 m_score = Mathf.CeilToInt(m_score * 1.5f);
                 transform.localScale = m_base_root_scale * 0.78f;
+                m_visual.localScale = new Vector3(1.28f, 1.72f, 1f);
                 m_visual_color = new Color(0.78f, 1f, 0.48f);
                 m_walk_bob *= 1.15f;
                 break;
@@ -159,16 +184,46 @@ public class Enemy : MonoBehaviour
                 m_score *= 3;
                 m_experience = Mathf.Max(3, m_experience * 3);
                 transform.localScale = m_base_root_scale * 1.65f;
+                m_visual.localScale = new Vector3(1.72f, 1.72f, 1f);
                 m_visual_color = new Color(0.72f, 0.48f, 1f);
                 m_walk_bob *= 0.65f;
                 m_walk_tilt *= 0.75f;
                 break;
+            case Archetype.Weaver:
+                maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * 0.90f));
+                moveSpeed *= 1.05f;
+                m_score = Mathf.CeilToInt(m_score * 1.75f);
+                m_experience = Mathf.Max(2, m_experience * 2);
+                transform.localScale = m_base_root_scale * 0.90f;
+                m_visual.localScale = new Vector3(1.36f, 1.62f, 1f);
+                m_visual_color = new Color(0.28f, 0.90f, 1f);
+                m_walk_bob *= 0.90f;
+                m_walk_tilt *= 1.25f;
+                break;
             default:
                 transform.localScale = m_base_root_scale;
+                m_visual.localScale = Vector3.one * 1.55f;
                 m_visual_color = Color.white;
                 break;
         }
+        m_visual_base_scale = m_visual.localScale;
         if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
+    }
+
+    public static int CountActive(StageLoop stageLoop)
+    {
+        int count = 0;
+        for (int index = s_active_enemies.Count - 1; index >= 0; index--)
+        {
+            Enemy enemy = s_active_enemies[index];
+            if (!enemy)
+            {
+                s_active_enemies.RemoveAt(index);
+                continue;
+            }
+            if (enemy.m_initialized && !enemy.m_is_settled && enemy.m_stage_loop == stageLoop) count++;
+        }
+        return count;
     }
 
     public static void StrikeFrontmost(StageLoop stageLoop)
@@ -213,7 +268,9 @@ public class Enemy : MonoBehaviour
         m_walk_phase += Time.deltaTime * frequency;
         float step = Mathf.Sin(m_walk_phase);
         m_visual.localPosition = m_visual_home + Vector3.up * (Mathf.Abs(step) * m_walk_bob);
-        m_visual.localRotation = Quaternion.Euler(0f, 0f, 270f + step * m_walk_tilt);
+        float weaveTilt = m_archetype == Archetype.Weaver
+            ? Mathf.Cos(m_lateral_elapsed * 2.15f + m_lateral_phase) * 5f : 0f;
+        m_visual.localRotation = Quaternion.Euler(0f, 0f, 270f + step * m_walk_tilt + weaveTilt);
     }
 
     private IEnumerator HitFeedbackRoutine()

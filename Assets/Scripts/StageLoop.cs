@@ -110,6 +110,8 @@ public class StageLoop : MonoBehaviour
     private Text m_defense_text;
     private Text m_time_text;
     private Text m_level_text;
+    private Text m_wave_text;
+    private Text m_wave_hint_text;
     private Text m_experience_text;
     private Text m_game_over_text;
     private Toggle m_auto_fire_toggle;
@@ -266,6 +268,7 @@ public class StageLoop : MonoBehaviour
         SetState(GameState.Playing);
         RefreshHud();
         RefreshProgressionUi();
+        SetWaveStatus(0, 0, "PREPARING WAVE 1");
 
         m_player = Instantiate(m_prefab_player, m_stage_transform);
         m_player.transform.position = new Vector3(0f, GetCameraBottom() + m_player_bottom_offset, 0f);
@@ -284,6 +287,12 @@ public class StageLoop : MonoBehaviour
     }
 
     public int DifficultyStage => GetDifficultyStage();
+
+    public void SetWaveStatus(int wave, int budget, string hint)
+    {
+        if (m_wave_text) m_wave_text.text = wave > 0 ? $"WAVE {wave:00}  •  BUDGET {budget}" : "WAVE --";
+        if (m_wave_hint_text) m_wave_hint_text.text = hint ?? string.Empty;
+    }
 
     public void RegisterEnemyKilled(int scoreReward, int experienceReward)
     {
@@ -698,6 +707,14 @@ public class StageLoop : MonoBehaviour
         m_stage_score_text.rectTransform.anchoredPosition = new Vector2(0f, -10f);
         m_stage_score_text.rectTransform.sizeDelta = new Vector2(220f, 40f);
         m_stage_score_text.alignment = TextAnchor.UpperCenter;
+        m_wave_text = CreateText("Wave", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+            new Vector2(0f, -50f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter);
+        m_wave_text.rectTransform.sizeDelta = new Vector2(280f, 30f);
+        StyleText(m_wave_text, 20, new Color(1f, 0.80f, 0.30f));
+        m_wave_hint_text = CreateText("WaveHint", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+            new Vector2(0f, -80f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter);
+        m_wave_hint_text.rectTransform.sizeDelta = new Vector2(390f, 28f);
+        StyleText(m_wave_hint_text, 15, new Color(0.72f, 0.91f, 0.96f));
         m_defense_text.rectTransform.sizeDelta = new Vector2(270f, 40f);
         m_time_text.rectTransform.sizeDelta = new Vector2(230f, 40f);
         m_level_text.rectTransform.sizeDelta = new Vector2(180f, 40f);
