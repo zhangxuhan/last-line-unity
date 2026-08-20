@@ -56,9 +56,9 @@ public class Player : MonoBehaviour
         m_main_coroutine = null;
     }
 
-    public bool TryApplyUpgrade(WeaponUpgradeType type)
+    public bool TryApplyUpgrade(WeaponUpgradeChoice choice)
     {
-        return m_runtime_weapon != null && m_runtime_weapon.TryApply(type);
+        return m_runtime_weapon != null && m_runtime_weapon.TryApply(choice);
     }
 
     private IEnumerator MainCoroutine()

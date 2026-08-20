@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(100)]
 public class PlayerBullet : MonoBehaviour
 {
     [Header("Lifetime")]
@@ -16,6 +17,7 @@ public class PlayerBullet : MonoBehaviour
     private float m_spawn_time;
     private Camera m_camera;
     private bool m_initialized;
+    private static int s_last_physics_sync_frame = -1;
 
     public void Initialize(Vector3 direction, float damage, float speed, int penetration)
     {
@@ -41,8 +43,16 @@ public class PlayerBullet : MonoBehaviour
         }
         if (StageLoop.Instance.State == StageLoop.GameState.LevelUp) return;
 
+        if (s_last_physics_sync_frame != Time.frameCount)
+        {
+            Physics.SyncTransforms();
+            s_last_physics_sync_frame = Time.frameCount;
+        }
+
         float distance = m_speed * Time.deltaTime;
         Vector3 start = transform.position;
+        if (ProcessOverlaps(start)) return;
+
         RaycastHit[] hits = Physics.SphereCastAll(start, m_collision_radius, m_direction, distance, ~0, QueryTriggerInteraction.Collide);
         System.Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
 
@@ -53,6 +63,7 @@ public class PlayerBullet : MonoBehaviour
         }
 
         transform.position = start + m_direction * distance;
+        if (ProcessOverlaps(transform.position)) return;
         if (Time.time - m_spawn_time >= m_max_lifetime || IsOutsideCamera()) Destroy(gameObject);
     }
 
@@ -81,6 +92,17 @@ public class PlayerBullet : MonoBehaviour
             return true;
         }
         m_remaining_penetration--;
+        return false;
+    }
+
+    private bool ProcessOverlaps(Vector3 position)
+    {
+        Collider[] overlaps = Physics.OverlapSphere(position, m_collision_radius, ~0, QueryTriggerInteraction.Collide);
+        foreach (Collider overlap in overlaps)
+        {
+            Enemy enemy = overlap.GetComponentInParent<Enemy>();
+            if (enemy && TryHit(enemy)) return true;
+        }
         return false;
     }
 

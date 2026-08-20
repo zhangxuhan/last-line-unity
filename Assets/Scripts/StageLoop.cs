@@ -56,7 +56,7 @@ public class StageLoop : MonoBehaviour
     private Text m_upgrade_header_text;
     private readonly Button[] m_upgrade_buttons = new Button[3];
     private readonly Text[] m_upgrade_button_texts = new Text[3];
-    private readonly WeaponUpgradeType[] m_current_upgrade_types = new WeaponUpgradeType[3];
+    private readonly WeaponUpgradeChoice[] m_current_upgrade_choices = new WeaponUpgradeChoice[3];
     private PlayerProgression m_progression;
     private Player m_player;
     private System.Random m_upgrade_random;
@@ -223,22 +223,31 @@ public class StageLoop : MonoBehaviour
     {
         if (State != GameState.LevelUp || !m_player || m_player.RuntimeWeapon == null) return;
 
-        var candidates = WeaponUpgradeSystem.GetRandomCandidates(m_player.RuntimeWeapon, 3, m_upgrade_random);
-        m_current_upgrade_count = candidates.Count;
+        var choices = WeaponUpgradeSystem.GetRandomChoices(m_player.RuntimeWeapon, 3, m_upgrade_random);
+        m_current_upgrade_count = choices.Count;
         m_upgrade_selection_locked = false;
         m_accept_upgrade_input_frame = Time.frameCount + 1;
         if (m_upgrade_header_text) m_upgrade_header_text.text = $"LEVEL UP\nLevel {Level}\nChoose one upgrade";
 
         for (int index = 0; index < m_upgrade_buttons.Length; index++)
         {
-            bool visible = index < candidates.Count;
+            bool visible = index < choices.Count;
             m_upgrade_buttons[index].gameObject.SetActive(visible);
             if (!visible) continue;
 
-            WeaponUpgradeType type = candidates[index];
-            m_current_upgrade_types[index] = type;
-            WeaponUpgradeOption option = WeaponUpgradeSystem.BuildOption(type, m_player.RuntimeWeapon);
-            m_upgrade_button_texts[index].text = $"[{index + 1}] {option.Name}\n{option.Description}\n{option.ValueChange}";
+            WeaponUpgradeChoice choice = choices[index];
+            m_current_upgrade_choices[index] = choice;
+            WeaponUpgradeOption option = WeaponUpgradeSystem.BuildOption(choice, m_player.RuntimeWeapon);
+            m_upgrade_button_texts[index].text = $"[{index + 1}] [{choice.Rarity}] {option.Name}\n{option.Description}\n{option.ValueChange}";
+            Color rarityColor = GetRarityColor(choice.Rarity);
+            ColorBlock colors = m_upgrade_buttons[index].colors;
+            colors.normalColor = rarityColor;
+            colors.highlightedColor = Color.Lerp(rarityColor, Color.white, 0.18f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.pressedColor = Color.Lerp(rarityColor, Color.black, 0.22f);
+            colors.disabledColor = new Color(rarityColor.r, rarityColor.g, rarityColor.b, 0.55f);
+            m_upgrade_buttons[index].colors = colors;
+            m_upgrade_buttons[index].image.color = rarityColor;
             m_upgrade_buttons[index].interactable = true;
         }
     }
@@ -252,7 +261,7 @@ public class StageLoop : MonoBehaviour
         m_upgrade_selection_locked = true;
         foreach (Button button in m_upgrade_buttons) button.interactable = false;
 
-        if (!m_player || !m_player.TryApplyUpgrade(m_current_upgrade_types[index]))
+        if (!m_player || !m_player.TryApplyUpgrade(m_current_upgrade_choices[index]))
         {
             PrepareUpgradeChoices();
             return;
@@ -491,6 +500,17 @@ public class StageLoop : MonoBehaviour
         }
 
         m_upgrade_panel.SetActive(false);
+    }
+
+    private static Color GetRarityColor(UpgradeRarity rarity)
+    {
+        switch (rarity)
+        {
+            case UpgradeRarity.R: return new Color(0.12f, 0.32f, 0.68f, 1f);
+            case UpgradeRarity.SR: return new Color(0.46f, 0.18f, 0.68f, 1f);
+            case UpgradeRarity.SSR: return new Color(0.92f, 0.42f, 0.08f, 1f);
+            default: return Color.gray;
+        }
     }
 
     private void RefreshProgressionUi()

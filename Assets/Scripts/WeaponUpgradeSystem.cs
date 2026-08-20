@@ -3,15 +3,23 @@ using System.Collections.Generic;
 using System.Globalization;
 
 public enum WeaponUpgradeType { Damage, FireInterval, ProjectileSpeed, ProjectileCount, Penetration }
+public enum UpgradeRarity { R, SR, SSR }
+
+public readonly struct WeaponUpgradeChoice
+{
+    public WeaponUpgradeType Type { get; }
+    public UpgradeRarity Rarity { get; }
+    public WeaponUpgradeChoice(WeaponUpgradeType type, UpgradeRarity rarity) { Type = type; Rarity = rarity; }
+}
 
 public readonly struct WeaponUpgradeOption
 {
-    public WeaponUpgradeType Type { get; }
+    public WeaponUpgradeChoice Choice { get; }
     public string Name { get; }
     public string Description { get; }
     public string ValueChange { get; }
-    public WeaponUpgradeOption(WeaponUpgradeType type, string name, string description, string valueChange)
-    { Type = type; Name = name; Description = description; ValueChange = valueChange; }
+    public WeaponUpgradeOption(WeaponUpgradeChoice choice, string name, string description, string valueChange)
+    { Choice = choice; Name = name; Description = description; ValueChange = valueChange; }
 }
 
 public sealed class WeaponRuntimeState
@@ -50,41 +58,48 @@ public sealed class WeaponRuntimeState
         }
     }
 
-    public bool TryApply(WeaponUpgradeType type)
+    public bool TryApply(WeaponUpgradeChoice choice)
     {
-        if (!CanApply(type)) return false;
-        switch (type)
+        if (!CanApply(choice.Type)) return false;
+        switch (choice.Type)
         {
-            case WeaponUpgradeType.Damage: Damage *= 1.25f; break;
-            case WeaponUpgradeType.FireInterval: FireInterval = Math.Max(MinimumFireInterval, FireInterval * 0.85f); break;
-            case WeaponUpgradeType.ProjectileSpeed: ProjectileSpeed *= 1.25f; break;
-            case WeaponUpgradeType.ProjectileCount: ProjectileCount++; break;
-            case WeaponUpgradeType.Penetration: PenetrationCount++; break;
+            case WeaponUpgradeType.Damage: Damage *= GetPowerMultiplier(choice.Rarity); break;
+            case WeaponUpgradeType.FireInterval: FireInterval = Math.Max(MinimumFireInterval, FireInterval * GetIntervalMultiplier(choice.Rarity)); break;
+            case WeaponUpgradeType.ProjectileSpeed: ProjectileSpeed *= GetPowerMultiplier(choice.Rarity); break;
+            case WeaponUpgradeType.ProjectileCount: ProjectileCount = Math.Min(MaximumProjectileCount, ProjectileCount + GetDiscreteIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.Penetration: PenetrationCount = Math.Min(MaximumPenetrationCount, PenetrationCount + GetDiscreteIncrease(choice.Rarity)); break;
             default: return false;
         }
         return true;
     }
 
-    public float GetNextFloatValue(WeaponUpgradeType type)
+    public float GetNextFloatValue(WeaponUpgradeChoice choice)
     {
-        switch (type)
+        switch (choice.Type)
         {
-            case WeaponUpgradeType.Damage: return Damage * 1.25f;
-            case WeaponUpgradeType.FireInterval: return Math.Max(MinimumFireInterval, FireInterval * 0.85f);
-            case WeaponUpgradeType.ProjectileSpeed: return ProjectileSpeed * 1.25f;
+            case WeaponUpgradeType.Damage: return Damage * GetPowerMultiplier(choice.Rarity);
+            case WeaponUpgradeType.FireInterval: return Math.Max(MinimumFireInterval, FireInterval * GetIntervalMultiplier(choice.Rarity));
+            case WeaponUpgradeType.ProjectileSpeed: return ProjectileSpeed * GetPowerMultiplier(choice.Rarity);
             default: return 0f;
         }
     }
 
-    public int GetNextIntValue(WeaponUpgradeType type)
+    public int GetNextIntValue(WeaponUpgradeChoice choice)
     {
-        switch (type)
+        int increase = GetDiscreteIncrease(choice.Rarity);
+        switch (choice.Type)
         {
-            case WeaponUpgradeType.ProjectileCount: return Math.Min(MaximumProjectileCount, ProjectileCount + 1);
-            case WeaponUpgradeType.Penetration: return Math.Min(MaximumPenetrationCount, PenetrationCount + 1);
+            case WeaponUpgradeType.ProjectileCount: return Math.Min(MaximumProjectileCount, ProjectileCount + increase);
+            case WeaponUpgradeType.Penetration: return Math.Min(MaximumPenetrationCount, PenetrationCount + increase);
             default: return 0;
         }
     }
+
+    public static float GetPowerMultiplier(UpgradeRarity rarity)
+        => rarity == UpgradeRarity.R ? 1.15f : rarity == UpgradeRarity.SR ? 1.25f : 1.40f;
+    public static float GetIntervalMultiplier(UpgradeRarity rarity)
+        => rarity == UpgradeRarity.R ? 0.90f : rarity == UpgradeRarity.SR ? 0.85f : 0.75f;
+    public static int GetDiscreteIncrease(UpgradeRarity rarity) => rarity == UpgradeRarity.SSR ? 2 : 1;
 }
 
 public static class WeaponUpgradeSystem
@@ -95,38 +110,53 @@ public static class WeaponUpgradeSystem
         WeaponUpgradeType.ProjectileCount, WeaponUpgradeType.Penetration
     };
 
-    public static List<WeaponUpgradeType> GetRandomCandidates(WeaponRuntimeState weapon, int maximumCount, Random random)
+    public static List<WeaponUpgradeChoice> GetRandomChoices(WeaponRuntimeState weapon, int maximumCount, Random random)
     {
-        var candidates = new List<WeaponUpgradeType>(AllTypes.Length);
-        foreach (WeaponUpgradeType type in AllTypes) if (weapon.CanApply(type)) candidates.Add(type);
-        for (int index = candidates.Count - 1; index > 0; index--)
+        var types = new List<WeaponUpgradeType>(AllTypes.Length);
+        foreach (WeaponUpgradeType type in AllTypes) if (weapon.CanApply(type)) types.Add(type);
+        for (int index = types.Count - 1; index > 0; index--)
         {
             int swapIndex = random.Next(index + 1);
-            WeaponUpgradeType value = candidates[index];
-            candidates[index] = candidates[swapIndex];
-            candidates[swapIndex] = value;
+            WeaponUpgradeType value = types[index];
+            types[index] = types[swapIndex];
+            types[swapIndex] = value;
         }
-        if (candidates.Count > maximumCount) candidates.RemoveRange(maximumCount, candidates.Count - maximumCount);
-        return candidates;
+
+        int count = Math.Min(maximumCount, types.Count);
+        var choices = new List<WeaponUpgradeChoice>(count);
+        for (int index = 0; index < count; index++) choices.Add(new WeaponUpgradeChoice(types[index], RollRarity(random)));
+        return choices;
     }
 
-    public static WeaponUpgradeOption BuildOption(WeaponUpgradeType type, WeaponRuntimeState weapon)
+    public static UpgradeRarity RollRarity(Random random)
     {
-        switch (type)
+        int roll = random.Next(100);
+        if (roll < 60) return UpgradeRarity.R;
+        if (roll < 90) return UpgradeRarity.SR;
+        return UpgradeRarity.SSR;
+    }
+
+    public static WeaponUpgradeOption BuildOption(WeaponUpgradeChoice choice, WeaponRuntimeState weapon)
+    {
+        switch (choice.Type)
         {
             case WeaponUpgradeType.Damage:
-                return new WeaponUpgradeOption(type, "Reinforced Rounds", "Increase bullet damage by 25%.", $"{Format(weapon.Damage)} -> {Format(weapon.GetNextFloatValue(type))}");
+                return new WeaponUpgradeOption(choice, "Reinforced Rounds", PowerDescription(choice.Rarity, "bullet damage"), $"{Format(weapon.Damage)} -> {Format(weapon.GetNextFloatValue(choice))}");
             case WeaponUpgradeType.FireInterval:
-                return new WeaponUpgradeOption(type, "Rapid Fire", "Reduce fire interval by 15%.", $"{Format(weapon.FireInterval)}s -> {Format(weapon.GetNextFloatValue(type))}s");
+                return new WeaponUpgradeOption(choice, "Rapid Fire", IntervalDescription(choice.Rarity), $"{Format(weapon.FireInterval)}s -> {Format(weapon.GetNextFloatValue(choice))}s");
             case WeaponUpgradeType.ProjectileSpeed:
-                return new WeaponUpgradeOption(type, "High-Velocity Rounds", "Increase projectile speed by 25%.", $"{Format(weapon.ProjectileSpeed)} -> {Format(weapon.GetNextFloatValue(type))}");
+                return new WeaponUpgradeOption(choice, "High-Velocity Rounds", PowerDescription(choice.Rarity, "projectile speed"), $"{Format(weapon.ProjectileSpeed)} -> {Format(weapon.GetNextFloatValue(choice))}");
             case WeaponUpgradeType.ProjectileCount:
-                return new WeaponUpgradeOption(type, "Multishot", "Fire one additional projectile.", $"{weapon.ProjectileCount} -> {weapon.GetNextIntValue(type)} projectiles");
+                return new WeaponUpgradeOption(choice, "Multishot", $"Fire {WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} additional projectile(s).", $"{weapon.ProjectileCount} -> {weapon.GetNextIntValue(choice)} projectiles");
             case WeaponUpgradeType.Penetration:
-                return new WeaponUpgradeOption(type, "Piercing Rounds", "Penetrate one additional enemy.", $"{weapon.PenetrationCount} -> {weapon.GetNextIntValue(type)} extra penetration");
-            default: throw new ArgumentOutOfRangeException(nameof(type));
+                return new WeaponUpgradeOption(choice, "Piercing Rounds", $"Penetrate {WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} additional enemy(s).", $"{weapon.PenetrationCount} -> {weapon.GetNextIntValue(choice)} extra penetration");
+            default: throw new ArgumentOutOfRangeException(nameof(choice));
         }
     }
 
+    private static string PowerDescription(UpgradeRarity rarity, string stat)
+        => $"Increase {stat} by {(WeaponRuntimeState.GetPowerMultiplier(rarity) - 1f) * 100f:0}%.";
+    private static string IntervalDescription(UpgradeRarity rarity)
+        => $"Reduce fire interval by {(1f - WeaponRuntimeState.GetIntervalMultiplier(rarity)) * 100f:0}%.";
     private static string Format(float value) => value.ToString("0.00", CultureInfo.InvariantCulture);
 }
