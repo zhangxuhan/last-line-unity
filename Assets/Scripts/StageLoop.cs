@@ -37,6 +37,29 @@ public sealed class PortraitCameraViewport : MonoBehaviour
     }
 }
 
+public sealed class DefenseMinePulse : MonoBehaviour
+{
+    private SpriteRenderer m_core;
+    private SpriteRenderer m_halo;
+    private float m_phase;
+
+    public void Initialize(SpriteRenderer core, SpriteRenderer halo, float phase)
+    {
+        m_core = core;
+        m_halo = halo;
+        m_phase = phase;
+    }
+
+    private void Update()
+    {
+        if (!m_halo || !StageLoop.Instance || !StageLoop.Instance.IsPlaying) return;
+        float pulse = 0.5f + Mathf.Sin(Time.time * 4.2f + m_phase) * 0.5f;
+        m_halo.transform.localScale = Vector3.one * Mathf.Lerp(1.65f, 2.25f, pulse);
+        m_halo.color = new Color(1f, 0.08f, 0.035f, Mathf.Lerp(0.24f, 0.52f, pulse));
+        if (m_core) m_core.color = Color.Lerp(Color.white, new Color(1f, 0.58f, 0.50f), pulse * 0.22f);
+    }
+}
+
 public class StageLoop : MonoBehaviour
 {
     public enum GameState
@@ -117,6 +140,7 @@ public class StageLoop : MonoBehaviour
     private static Sprite s_tick_sprite;
     private static Material s_upgrade_icon_material;
     private static Sprite s_defense_mine_sprite;
+    private static Sprite s_defense_mine_glow_sprite;
 
     public GameState State { get; private set; } = GameState.Title;
     public bool IsPlaying => State == GameState.Playing;
@@ -420,6 +444,17 @@ public class StageLoop : MonoBehaviour
             renderer.sprite = GetDefenseMineSprite();
             renderer.color = Color.white;
             renderer.sortingOrder = 3;
+
+            GameObject haloObject = new GameObject("RedWarningGlow", typeof(SpriteRenderer));
+            haloObject.transform.SetParent(bomb.transform, false);
+            SpriteRenderer halo = haloObject.GetComponent<SpriteRenderer>();
+            halo.sprite = GetDefenseMineGlowSprite();
+            halo.color = new Color(1f, 0.08f, 0.035f, 0.32f);
+            halo.sortingOrder = 2;
+            haloObject.transform.localScale = Vector3.one * 1.8f;
+
+            DefenseMinePulse pulse = bomb.AddComponent<DefenseMinePulse>();
+            pulse.Initialize(renderer, halo, lane * 1.17f);
             bomb.transform.localScale = Vector3.one * 0.30f;
             m_defense_bomb_visuals[lane] = bomb;
         }
@@ -455,6 +490,32 @@ public class StageLoop : MonoBehaviour
         texture.Apply(false, true);
         s_defense_mine_sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
         return s_defense_mine_sprite;
+    }
+
+    private static Sprite GetDefenseMineGlowSprite()
+    {
+        if (s_defense_mine_glow_sprite) return s_defense_mine_glow_sprite;
+        const int size = 96;
+        float center = (size - 1) * 0.5f;
+        float maximumRadius = center;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.name = "RuntimeDefenseMineGlow";
+        texture.filterMode = FilterMode.Bilinear;
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float radius = Vector2.Distance(new Vector2(x, y), new Vector2(center, center)) / maximumRadius;
+                float alpha = radius >= 1f ? 0f : Mathf.Pow(1f - radius, 2.2f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        texture.SetPixels(pixels);
+        texture.Apply(false, true);
+        s_defense_mine_glow_sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f), size);
+        return s_defense_mine_glow_sprite;
     }
 
     private void EnterGameOver()
