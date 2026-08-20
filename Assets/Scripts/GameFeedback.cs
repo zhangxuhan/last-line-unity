@@ -18,6 +18,7 @@ public sealed class GameFeedback : MonoBehaviour
     private static Sprite s_white_sprite;
     private static Font s_runtime_font;
     private static Sprite[] s_tree_sprites;
+    private static Sprite[] s_decor_sprites;
 
     public void Initialize(Camera gameCamera, Transform stageRoot, Transform uiRoot, Text defenseText, float defenseLineY)
     {
@@ -351,6 +352,7 @@ public sealed class GameFeedback : MonoBehaviour
             line.transform.localScale = new Vector3(width, 0.018f, 1f);
         }
         BuildSideTrees(stageRoot, center.x, bottom, width, height);
+        BuildEdgeDecorations(stageRoot, center.x, bottom, width, height);
         GameObject defense = CreateSpriteObject("DefenseLine", new Vector3(center.x, defenseLineY, 0.7f),
             new Color(0.90f, 0.16f, 0.12f, 0.85f), -5);
         defense.transform.SetParent(stageRoot, true);
@@ -389,6 +391,40 @@ public sealed class GameFeedback : MonoBehaviour
                 renderer.sprite = s_tree_sprites[index % s_tree_sprites.Length];
                 renderer.color = new Color(0.72f, 0.78f, 0.78f, 0.82f);
                 renderer.sortingOrder = -12;
+            }
+        }
+    }
+
+    private void BuildEdgeDecorations(Transform stageRoot, float centerX, float bottom, float width, float height)
+    {
+        if (s_decor_sprites == null)
+        {
+            s_decor_sprites = new[]
+            {
+                Resources.Load<Sprite>("Task5/Environment/decor_crate"),
+                Resources.Load<Sprite>("Task5/Environment/decor_rubble"),
+                Resources.Load<Sprite>("Task5/Environment/decor_sandbag")
+            };
+        }
+
+        const int propsPerSide = 4;
+        for (int side = -1; side <= 1; side += 2)
+        {
+            for (int index = 0; index < propsPerSide; index++)
+            {
+                Sprite sprite = s_decor_sprites[(index + (side > 0 ? 1 : 0)) % s_decor_sprites.Length];
+                if (!sprite) continue;
+                float x = centerX + side * (width * 0.5f - 0.58f - (index % 2) * 0.16f);
+                float y = bottom + height * (index + 1.15f) / (propsPerSide + 1.2f);
+                GameObject prop = new GameObject($"EdgeProp_{side}_{index}", typeof(SpriteRenderer));
+                prop.transform.SetParent(stageRoot, false);
+                prop.transform.position = new Vector3(x, y, 0.52f);
+                prop.transform.localScale = Vector3.one * (0.52f + index * 0.035f);
+                prop.transform.localRotation = Quaternion.Euler(0f, 0f, side * (8f + index * 11f));
+                SpriteRenderer renderer = prop.GetComponent<SpriteRenderer>();
+                renderer.sprite = sprite;
+                renderer.color = new Color(0.62f, 0.70f, 0.72f, 0.72f);
+                renderer.sortingOrder = -11;
             }
         }
     }

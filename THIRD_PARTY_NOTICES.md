@@ -7,8 +7,8 @@ Assets listed here are used only for presentation and feedback in this project. 
 - Provider: Kenney
 - Source: https://kenney.nl/assets/top-down-shooter
 - License: Creative Commons CC0 1.0 Universal
-- Used files: `player.png` (from `survivor1_gun.png`), `zombie.png` (from `zoimbie1_stand.png`)
-- Used for: player and enemy top-down visuals
+- Used files: `player.png` (from `survivor1_gun.png`), `zombie.png` (from `zoimbie1_stand.png`), `decor_crate.png` (from `tile_130.png`), `decor_rubble.png` (from `tile_320.png`), `decor_sandbag.png` (from `tile_528.png`)
+- Used for: player and enemy top-down visuals plus non-colliding battlefield edge decoration
 - Retrieved: 2026-08-20
 
 ## Kenney Sci-fi Sounds
