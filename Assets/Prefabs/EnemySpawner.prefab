@@ -44,4 +44,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_prefab_enemy: {fileID: -815993105983958437, guid: bc5749eaadb203044a2e3afe7a642bdc, type: 3}
-  m_spawn_interval: 2
+  m_horizontal_margin: 0.5
+  m_top_margin: 0.5
+  m_min_horizontal_separation: 0.8

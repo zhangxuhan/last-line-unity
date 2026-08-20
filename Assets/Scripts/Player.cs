@@ -45,7 +45,7 @@ public class Player : MonoBehaviour
 
     private IEnumerator MainCoroutine()
     {
-        while (true)
+        while (StageLoop.Instance && StageLoop.Instance.IsPlaying)
         {
             UpdateMovement();
             UpdateAimDirection();
@@ -56,6 +56,8 @@ public class Player : MonoBehaviour
             }
             yield return null;
         }
+
+        m_main_coroutine = null;
     }
 
     private void UpdateMovement()
@@ -109,8 +111,7 @@ public class Player : MonoBehaviour
 
     private void Fire()
     {
-        if (!m_prefab_player_bullet) return;
-        // projectileCount is retained for the later upgrade task; Task 1 fires one trajectory.
+        if (!m_prefab_player_bullet || !StageLoop.Instance || !StageLoop.Instance.IsPlaying) return;
         PlayerBullet bullet = Instantiate(m_prefab_player_bullet, transform.parent);
         bullet.transform.position = transform.position + m_aim_direction * m_muzzle_offset;
         bullet.Initialize(m_aim_direction, m_weapon.damage, m_weapon.bulletSpeed, m_weapon.penetration);

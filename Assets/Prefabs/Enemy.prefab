@@ -142,7 +142,6 @@ MonoBehaviour:
   m_experience: 1
   m_move_speed: 0.9
   m_rotation_speed: 200
-  m_life_time: 12
 --- !u!54 &1482555287743958093
 Rigidbody:
   m_ObjectHideFlags: 0

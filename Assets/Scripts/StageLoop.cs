@@ -4,100 +4,302 @@ using UnityEngine.UI;
 
 public class StageLoop : MonoBehaviour
 {
+    public enum GameState
+    {
+        Title,
+        Playing,
+        GameOver
+    }
+
     public static StageLoop Instance { get; private set; }
 
     [SerializeField] private TitleLoop m_title_loop;
+
     [Header("Layout")]
     [SerializeField] private Transform m_stage_transform;
     [SerializeField] private Text m_stage_score_text;
+    [SerializeField] private Camera m_game_camera;
+    [SerializeField, Min(0f), Tooltip("Distance above the camera bottom used for the player.")]
+    private float m_player_bottom_offset = 0.8f;
+    [SerializeField, Min(0f), Tooltip("Distance above the camera bottom used for the defense line.")]
+    private float m_defense_bottom_offset = 1.6f;
+
     [Header("Prefab")]
     [SerializeField] private Player m_prefab_player;
     [SerializeField] private EnemySpawner m_prefab_enemy_spawner;
 
+    [Header("Defense")]
+    [SerializeField, Min(1)] private int m_max_breaches = 3;
+
+    [Header("Difficulty")]
+    [SerializeField, Min(0.1f)] private float m_base_spawn_interval = 1.4f;
+    [SerializeField, Min(0.1f)] private float m_min_spawn_interval = 0.5f;
+    [SerializeField, Min(1)] private int m_base_enemy_hp = 30;
+    [SerializeField, Min(0f)] private float m_base_enemy_speed = 0.9f;
+    [SerializeField, Min(1f)] private float m_difficulty_stage_seconds = 30f;
+    [SerializeField, Min(1f)] private float m_hp_multiplier_per_stage = 1.2f;
+    [SerializeField, Min(1f)] private float m_speed_multiplier_per_stage = 1.08f;
+    [SerializeField, Range(0.01f, 1f)] private float m_spawn_interval_multiplier_per_stage = 0.9f;
+
     private Coroutine m_stage_coroutine;
+    private GameObject m_stage_ui_root;
+    private Text m_defense_text;
+    private Text m_time_text;
+    private Text m_game_over_text;
     private int m_game_score;
+    private int m_breach_count;
+    private float m_survival_time;
+
+    public GameState State { get; private set; } = GameState.Title;
+    public bool IsPlaying => State == GameState.Playing;
+    public float DefenseLineY => GetCameraBottom() + m_defense_bottom_offset;
+    public float SurvivalTime => m_survival_time;
+    public float CurrentSpawnInterval
+    {
+        get
+        {
+            float interval = m_base_spawn_interval
+                * Mathf.Pow(m_spawn_interval_multiplier_per_stage, GetDifficultyStage());
+            return Mathf.Max(m_min_spawn_interval, interval);
+        }
+    }
+
+    private void Awake()
+    {
+        Instance = this;
+        if (!m_game_camera) m_game_camera = Camera.main;
+        CreateRuntimeUi();
+        SetState(GameState.Title);
+    }
 
     public void StartStageLoop()
     {
-        StopStageLoop();
+        StopStageCoroutine();
+        SetupStage();
         m_stage_coroutine = StartCoroutine(StageCoroutine());
     }
 
     private IEnumerator StageCoroutine()
     {
-        SetupStage();
-        while (true)
+        while (State != GameState.Title)
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (State == GameState.Playing)
             {
-                CleanupStage();
-                m_stage_coroutine = null;
-                m_title_loop.StartTitleLoop();
-                yield break;
+                m_survival_time += Time.deltaTime;
+                RefreshHud();
+
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    ReturnToTitle();
+                    yield break;
+                }
             }
+            else if (State == GameState.GameOver)
+            {
+                if (Input.GetKeyDown(KeyCode.Space))
+                {
+                    SetupStage();
+                }
+                else if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    ReturnToTitle();
+                    yield break;
+                }
+            }
+
             yield return null;
         }
+
+        m_stage_coroutine = null;
     }
 
     private void SetupStage()
     {
         CleanupStageObjects();
-        Instance = this;
+        if (!m_game_camera) m_game_camera = Camera.main;
+
         m_game_score = 0;
-        RefreshScore();
+        m_breach_count = 0;
+        m_survival_time = 0f;
+        SetState(GameState.Playing);
+        RefreshHud();
 
         Player player = Instantiate(m_prefab_player, m_stage_transform);
-        player.transform.position = new Vector3(0f, -4f, 0f);
+        player.transform.position = new Vector3(0f, GetCameraBottom() + m_player_bottom_offset, 0f);
         player.StartRunning();
-        CreateSpawner(new Vector3(-4f, 4f, 0f));
-        CreateSpawner(new Vector3(4f, 4f, 0f));
-    }
 
-    private void CreateSpawner(Vector3 position)
-    {
         EnemySpawner spawner = Instantiate(m_prefab_enemy_spawner, m_stage_transform);
-        spawner.transform.position = position;
-        spawner.StartRunning();
+        spawner.Initialize(this, m_game_camera, m_stage_transform);
     }
 
-    private void StopStageLoop()
+    public void GetCurrentEnemyStats(out int maxHp, out float moveSpeed)
     {
-        if (m_stage_coroutine != null)
-        {
-            StopCoroutine(m_stage_coroutine);
-            m_stage_coroutine = null;
-        }
-        CleanupStage();
+        int stage = GetDifficultyStage();
+        maxHp = Mathf.Max(1, Mathf.CeilToInt(m_base_enemy_hp * Mathf.Pow(m_hp_multiplier_per_stage, stage)));
+        moveSpeed = Mathf.Max(0f, m_base_enemy_speed * Mathf.Pow(m_speed_multiplier_per_stage, stage));
     }
 
-    private void CleanupStage()
+    public void AddScore(int value)
     {
-        if (Instance == this) Instance = null;
+        if (!IsPlaying || value <= 0) return;
+        m_game_score += value;
+        RefreshHud();
+    }
+
+    public void RegisterBreach(Enemy enemy)
+    {
+        if (!IsPlaying || !enemy) return;
+
+        m_breach_count = Mathf.Min(m_max_breaches, m_breach_count + 1);
+        RefreshHud();
+        if (m_breach_count >= m_max_breaches) EnterGameOver();
+    }
+
+    private void EnterGameOver()
+    {
+        if (!IsPlaying) return;
+
+        SetState(GameState.GameOver);
         CleanupStageObjects();
+        RefreshHud();
+        RefreshGameOverText();
+    }
+
+    private void ReturnToTitle()
+    {
+        CleanupStageObjects();
+        SetState(GameState.Title);
+        m_game_score = 0;
+        m_breach_count = 0;
+        m_survival_time = 0f;
+        m_stage_coroutine = null;
+        m_title_loop.StartTitleLoop();
+    }
+
+    private void SetState(GameState state)
+    {
+        State = state;
+        if (m_stage_ui_root) m_stage_ui_root.SetActive(state != GameState.Title);
+        if (m_game_over_text) m_game_over_text.gameObject.SetActive(state == GameState.GameOver);
+    }
+
+    private int GetDifficultyStage()
+    {
+        return Mathf.Max(0, Mathf.FloorToInt(m_survival_time / m_difficulty_stage_seconds));
+    }
+
+    private float GetCameraBottom()
+    {
+        if (!m_game_camera) return -5f;
+        float distance = Mathf.Abs(m_game_camera.transform.position.z);
+        return m_game_camera.ViewportToWorldPoint(new Vector3(0.5f, 0f, distance)).y;
+    }
+
+    private void StopStageCoroutine()
+    {
+        if (m_stage_coroutine == null) return;
+        StopCoroutine(m_stage_coroutine);
+        m_stage_coroutine = null;
     }
 
     private void CleanupStageObjects()
     {
         if (!m_stage_transform) return;
+
         foreach (Player player in m_stage_transform.GetComponentsInChildren<Player>(true)) player.StopRunning();
         foreach (EnemySpawner spawner in m_stage_transform.GetComponentsInChildren<EnemySpawner>(true)) spawner.StopRunning();
+        foreach (Enemy enemy in m_stage_transform.GetComponentsInChildren<Enemy>(true)) enemy.StopRunning();
+        foreach (PlayerBullet bullet in m_stage_transform.GetComponentsInChildren<PlayerBullet>(true)) bullet.StopRunning();
+
         for (int index = m_stage_transform.childCount - 1; index >= 0; index--)
             Destroy(m_stage_transform.GetChild(index).gameObject);
     }
 
-    public void AddScore(int value)
+    private void CreateRuntimeUi()
     {
-        if (Instance != this || value <= 0) return;
-        m_game_score += value;
-        RefreshScore();
+        if (!m_stage_score_text) return;
+
+        m_stage_ui_root = m_stage_score_text.transform.parent.gameObject;
+        m_defense_text = CreateText("Defense", new Vector2(0f, 1f), new Vector2(0f, 1f),
+            new Vector2(10f, -10f), new Vector2(0f, 1f), TextAnchor.UpperLeft);
+        m_time_text = CreateText("Time", new Vector2(1f, 1f), new Vector2(1f, 1f),
+            new Vector2(-10f, -10f), new Vector2(1f, 1f), TextAnchor.UpperRight);
+        m_game_over_text = CreateText("GameOver", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+            Vector2.zero, new Vector2(0.5f, 0.5f), TextAnchor.MiddleCenter);
+        m_game_over_text.rectTransform.sizeDelta = new Vector2(620f, 360f);
+        m_game_over_text.fontSize = 32;
+        m_game_over_text.color = Color.white;
     }
 
-    private void RefreshScore()
+    private Text CreateText(string name, Vector2 anchorMin, Vector2 anchorMax,
+        Vector2 position, Vector2 pivot, TextAnchor alignment)
+    {
+        Text text = Instantiate(m_stage_score_text, m_stage_score_text.transform.parent);
+        text.name = name;
+        text.rectTransform.anchorMin = anchorMin;
+        text.rectTransform.anchorMax = anchorMax;
+        text.rectTransform.anchoredPosition = position;
+        text.rectTransform.pivot = pivot;
+        text.rectTransform.sizeDelta = new Vector2(400f, 40f);
+        text.alignment = alignment;
+        return text;
+    }
+
+    private void RefreshHud()
     {
         if (m_stage_score_text) m_stage_score_text.text = $"Score {m_game_score:00000}";
+        if (m_defense_text) m_defense_text.text = $"Defense: {m_max_breaches - m_breach_count} / {m_max_breaches}";
+        if (m_time_text) m_time_text.text = $"Time {FormatTime(m_survival_time)}";
     }
 
-    private void OnDisable() => StopStageLoop();
+    private void RefreshGameOverText()
+    {
+        if (!m_game_over_text) return;
+        m_game_over_text.text =
+            $"GAME OVER\n\nFinal Score: {m_game_score}\nSurvival Time: {FormatTime(m_survival_time)}\n" +
+            $"Breaches: {m_breach_count} / {m_max_breaches}\n\nPress Space to Restart\nPress Esc to Return to Title";
+    }
+
+    private static string FormatTime(float time)
+    {
+        int totalSeconds = Mathf.Max(0, Mathf.FloorToInt(time));
+        return $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
+    }
+
+    private void OnDrawGizmos()
+    {
+        Camera camera = m_game_camera ? m_game_camera : Camera.main;
+        if (!camera || !camera.orthographic) return;
+
+        float distance = Mathf.Abs(camera.transform.position.z);
+        Vector3 left = camera.ViewportToWorldPoint(new Vector3(0f, 0f, distance));
+        Vector3 right = camera.ViewportToWorldPoint(new Vector3(1f, 0f, distance));
+        float y = left.y + m_defense_bottom_offset;
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(new Vector3(left.x, y, 0f), new Vector3(right.x, y, 0f));
+    }
+
+    private void OnValidate()
+    {
+        m_player_bottom_offset = Mathf.Max(0f, m_player_bottom_offset);
+        m_defense_bottom_offset = Mathf.Max(0f, m_defense_bottom_offset);
+        m_max_breaches = Mathf.Max(1, m_max_breaches);
+        m_base_spawn_interval = Mathf.Max(0.1f, m_base_spawn_interval);
+        m_min_spawn_interval = Mathf.Clamp(m_min_spawn_interval, 0.1f, m_base_spawn_interval);
+        m_base_enemy_hp = Mathf.Max(1, m_base_enemy_hp);
+        m_base_enemy_speed = Mathf.Max(0f, m_base_enemy_speed);
+        m_difficulty_stage_seconds = Mathf.Max(1f, m_difficulty_stage_seconds);
+        m_hp_multiplier_per_stage = Mathf.Max(1f, m_hp_multiplier_per_stage);
+        m_speed_multiplier_per_stage = Mathf.Max(1f, m_speed_multiplier_per_stage);
+        m_spawn_interval_multiplier_per_stage = Mathf.Clamp(m_spawn_interval_multiplier_per_stage, 0.01f, 1f);
+    }
+
+    private void OnDisable()
+    {
+        StopStageCoroutine();
+        CleanupStageObjects();
+        State = GameState.Title;
+    }
 
     private void OnDestroy()
     {

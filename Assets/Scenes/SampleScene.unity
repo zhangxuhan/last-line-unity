@@ -491,8 +491,20 @@ MonoBehaviour:
   m_title_loop: {fileID: 1106369388}
   m_stage_transform: {fileID: 431413297}
   m_stage_score_text: {fileID: 999465702}
+  m_game_camera: {fileID: 963194227}
+  m_player_bottom_offset: 0.8
+  m_defense_bottom_offset: 1.6
   m_prefab_player: {fileID: 8345280602849411046, guid: 6ac43da3da70c1a4e97cf724e73a4dd7, type: 3}
   m_prefab_enemy_spawner: {fileID: -2756452676086639708, guid: 67832a5cc26e2c343b585b1715f75afc, type: 3}
+  m_max_breaches: 3
+  m_base_spawn_interval: 1.4
+  m_min_spawn_interval: 0.5
+  m_base_enemy_hp: 30
+  m_base_enemy_speed: 0.9
+  m_difficulty_stage_seconds: 30
+  m_hp_multiplier_per_stage: 1.2
+  m_speed_multiplier_per_stage: 1.08
+  m_spawn_interval_multiplier_per_stage: 0.9
 --- !u!114 &1106369388
 MonoBehaviour:
   m_ObjectHideFlags: 0

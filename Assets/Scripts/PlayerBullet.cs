@@ -32,6 +32,12 @@ public class PlayerBullet : MonoBehaviour
     private void Update()
     {
         if (!m_initialized) return;
+        if (!StageLoop.Instance || !StageLoop.Instance.IsPlaying)
+        {
+            StopRunning();
+            Destroy(gameObject);
+            return;
+        }
 
         float distance = m_speed * Time.deltaTime;
         Vector3 start = transform.position;
@@ -50,9 +56,16 @@ public class PlayerBullet : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (!m_initialized) return;
+        if (!m_initialized || !StageLoop.Instance || !StageLoop.Instance.IsPlaying) return;
         Enemy enemy = other.GetComponentInParent<Enemy>();
         if (enemy) TryHit(enemy);
+    }
+
+    public void StopRunning()
+    {
+        m_initialized = false;
+        foreach (Collider colliderComponent in GetComponentsInChildren<Collider>())
+            colliderComponent.enabled = false;
     }
 
     private bool TryHit(Enemy enemy)
@@ -61,6 +74,7 @@ public class PlayerBullet : MonoBehaviour
         enemy.TakeDamage(m_damage);
         if (m_remaining_penetration <= 0)
         {
+            StopRunning();
             Destroy(gameObject);
             return true;
         }
