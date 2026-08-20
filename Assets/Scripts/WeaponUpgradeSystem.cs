@@ -31,6 +31,7 @@ public sealed class WeaponRuntimeState
     public const float MinimumFireInterval = 0.12f;
     public const int MaximumProjectileCount = 5;
     public const int MaximumPenetrationCount = 3;
+    public const float MaximumCriticalChance = 0.75f;
     private const float LimitEpsilon = 0.0001f;
 
     public float Damage { get; private set; }
@@ -63,7 +64,7 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.FireInterval: return FireInterval > MinimumFireInterval + LimitEpsilon;
             case WeaponUpgradeType.ProjectileCount: return ProjectileCount < MaximumProjectileCount;
             case WeaponUpgradeType.Penetration: return PenetrationCount < MaximumPenetrationCount;
-            case WeaponUpgradeType.CriticalChance: return CriticalChance < 0.5f - LimitEpsilon;
+            case WeaponUpgradeType.CriticalChance: return CriticalChance < MaximumCriticalChance - LimitEpsilon;
             case WeaponUpgradeType.BurstFire: return BurstCount < 3;
             case WeaponUpgradeType.Lightning: return LightningLevel < 3;
             default: return true;
@@ -80,7 +81,7 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.ProjectileSpeed: ProjectileSpeed *= GetPowerMultiplier(choice.Rarity); break;
             case WeaponUpgradeType.ProjectileCount: ProjectileCount = Math.Min(MaximumProjectileCount, ProjectileCount + GetDiscreteIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.Penetration: PenetrationCount = Math.Min(MaximumPenetrationCount, PenetrationCount + GetDiscreteIncrease(choice.Rarity)); break;
-            case WeaponUpgradeType.CriticalChance: CriticalChance = Math.Min(0.5f, CriticalChance + GetCriticalChanceIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.CriticalChance: CriticalChance = Math.Min(MaximumCriticalChance, CriticalChance + GetCriticalChanceIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(3, BurstCount + 1); break;
             case WeaponUpgradeType.Lightning: LightningLevel = Math.Min(3, LightningLevel + 1); break;
             default: return false;
@@ -95,7 +96,7 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.Damage: return Damage * GetPowerMultiplier(choice.Rarity);
             case WeaponUpgradeType.FireInterval: return Math.Max(MinimumFireInterval, FireInterval * GetIntervalMultiplier(choice.Rarity));
             case WeaponUpgradeType.ProjectileSpeed: return ProjectileSpeed * GetPowerMultiplier(choice.Rarity);
-            case WeaponUpgradeType.CriticalChance: return Math.Min(0.5f, CriticalChance + GetCriticalChanceIncrease(choice.Rarity));
+            case WeaponUpgradeType.CriticalChance: return Math.Min(MaximumCriticalChance, CriticalChance + GetCriticalChanceIncrease(choice.Rarity));
             default: return 0f;
         }
     }
@@ -114,12 +115,12 @@ public sealed class WeaponRuntimeState
     }
 
     public static float GetPowerMultiplier(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 1.15f : rarity == UpgradeRarity.SR ? 1.25f : 1.40f;
+        => rarity == UpgradeRarity.R ? 1.20f : rarity == UpgradeRarity.SR ? 1.30f : 1.45f;
     public static float GetIntervalMultiplier(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 0.90f : rarity == UpgradeRarity.SR ? 0.85f : 0.75f;
+        => rarity == UpgradeRarity.R ? 0.88f : rarity == UpgradeRarity.SR ? 0.82f : 0.72f;
     public static int GetDiscreteIncrease(UpgradeRarity rarity) => rarity == UpgradeRarity.SSR ? 2 : 1;
     public static float GetCriticalChanceIncrease(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 0.05f : rarity == UpgradeRarity.SR ? 0.10f : 0.15f;
+        => rarity == UpgradeRarity.R ? 0.10f : rarity == UpgradeRarity.SR ? 0.15f : 0.25f;
 }
 
 public static class WeaponUpgradeSystem
@@ -152,8 +153,8 @@ public static class WeaponUpgradeSystem
     public static UpgradeRarity RollRarity(Random random)
     {
         int roll = random.Next(100);
-        if (roll < 60) return UpgradeRarity.R;
-        if (roll < 90) return UpgradeRarity.SR;
+        if (roll < 40) return UpgradeRarity.R;
+        if (roll < 80) return UpgradeRarity.SR;
         return UpgradeRarity.SSR;
     }
 
