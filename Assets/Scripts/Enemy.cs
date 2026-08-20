@@ -37,7 +37,7 @@ public class Enemy : MonoBehaviour
     private float m_lateral_frequency;
     private int m_shield_hits_remaining;
     private SpriteRenderer m_shield_renderer;
-    private static Sprite s_square_sprite;
+    private static Sprite s_shield_sprite;
     private static readonly List<Enemy> s_active_enemies = new List<Enemy>();
 
     public int ExperienceReward => m_experience;
@@ -211,62 +211,63 @@ public class Enemy : MonoBehaviour
 
     private void BuildArchetypeAccessories(Archetype archetype)
     {
-        if (!s_square_sprite)
-            s_square_sprite = Sprite.Create(Texture2D.whiteTexture,
-                new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height),
-                new Vector2(0.5f, 0.5f), 4f);
-
-        switch (archetype)
-        {
-            case Archetype.Runner:
-                CreateAccessory("RunnerStripe", new Vector3(0f, 0.06f, 0f), new Vector3(0.42f, 0.08f, 1f),
-                    new Color(0.95f, 1f, 0.20f), 3);
-                break;
-            case Archetype.Brute:
-                CreateAccessory("LeftPauldron", new Vector3(-0.31f, 0.02f, 0f), new Vector3(0.20f, 0.30f, 1f),
-                    new Color(0.22f, 0.25f, 0.27f), 3);
-                CreateAccessory("RightPauldron", new Vector3(0.31f, 0.02f, 0f), new Vector3(0.20f, 0.30f, 1f),
-                    new Color(0.22f, 0.25f, 0.27f), 3);
-                break;
-            case Archetype.Weaver:
-                CreateAccessory("WeaverMark", new Vector3(0f, 0.12f, 0f), new Vector3(0.16f, 0.42f, 1f),
-                    new Color(0.20f, 1f, 1f), 3);
-                break;
-            case Archetype.Elite:
-                CreateAccessory("EliteCrest", new Vector3(0f, 0.38f, 0f), new Vector3(0.34f, 0.16f, 1f),
-                    new Color(1f, 0.38f, 0.92f), 3);
-                break;
-            case Archetype.Shield:
-                m_shield_renderer = CreateAccessory("Shield", new Vector3(0f, -0.34f, 0f),
-                    new Vector3(0.64f, 0.22f, 1f), new Color(0.22f, 0.72f, 0.88f), 4);
-                CreateAccessory("ShieldRim", new Vector3(0f, -0.34f, 0f), new Vector3(0.72f, 0.29f, 1f),
-                    new Color(0.04f, 0.12f, 0.16f), 3);
-                UpdateShieldVisual();
-                break;
-        }
+        if (archetype != Archetype.Shield) return;
+        if (!s_shield_sprite) s_shield_sprite = CreateShieldSprite();
+        GameObject shield = new GameObject("Shield", typeof(SpriteRenderer));
+        shield.transform.SetParent(m_visual, false);
+        // The Kenney zombie source faces left and its visual is rotated 270 degrees.
+        // Counter-rotate the shield so its heraldic silhouette remains upright on screen.
+        shield.transform.localPosition = new Vector3(0.34f, 0f, 0f);
+        shield.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        shield.transform.localScale = new Vector3(0.72f, 0.72f, 1f);
+        m_shield_renderer = shield.GetComponent<SpriteRenderer>();
+        m_shield_renderer.sprite = s_shield_sprite;
+        m_shield_renderer.sortingOrder = 4;
+        UpdateShieldVisual();
     }
 
-    private SpriteRenderer CreateAccessory(string objectName, Vector3 localPosition, Vector3 localScale,
-        Color color, int sortingOrder)
+    private static Sprite CreateShieldSprite()
     {
-        GameObject accessory = new GameObject(objectName, typeof(SpriteRenderer));
-        accessory.transform.SetParent(m_visual, false);
-        accessory.transform.localPosition = localPosition;
-        accessory.transform.localScale = localScale;
-        SpriteRenderer renderer = accessory.GetComponent<SpriteRenderer>();
-        renderer.sprite = s_square_sprite;
-        renderer.color = color;
-        renderer.sortingOrder = sortingOrder;
-        return renderer;
+        const int width = 64;
+        const int height = 80;
+        Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        texture.name = "RuntimeShieldIcon";
+        texture.filterMode = FilterMode.Bilinear;
+        texture.wrapMode = TextureWrapMode.Clamp;
+        Color clear = Color.clear;
+        Color rim = new Color(0.035f, 0.10f, 0.14f, 1f);
+        Color metal = new Color(0.18f, 0.68f, 0.82f, 1f);
+        Color highlight = new Color(0.58f, 0.94f, 1f, 1f);
+        Color emblem = new Color(0.94f, 0.78f, 0.24f, 1f);
+
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            float nx = Mathf.Abs((x + 0.5f) / width - 0.5f) * 2f;
+            float ny = (y + 0.5f) / height;
+            float halfWidth = ny >= 0.48f ? 0.84f : Mathf.Lerp(0.05f, 0.84f, ny / 0.48f);
+            bool inside = nx <= halfWidth && ny >= 0.04f && ny <= 0.94f;
+            if (!inside) { texture.SetPixel(x, y, clear); continue; }
+
+            float innerHalfWidth = Mathf.Max(0f, halfWidth - 0.13f);
+            bool border = nx > innerHalfWidth || ny < 0.10f || ny > 0.86f;
+            bool centerRidge = nx < 0.08f && ny > 0.18f && ny < 0.80f;
+            bool crossBar = Mathf.Abs(ny - 0.55f) < 0.055f && nx < 0.48f;
+            Color pixel = border ? rim : centerRidge || crossBar ? emblem : metal;
+            if (!border && x < width / 2 - 4) pixel = Color.Lerp(pixel, highlight, 0.22f);
+            texture.SetPixel(x, y, pixel);
+        }
+        texture.Apply(false, true);
+        return Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0.48f), 80f);
     }
 
     private void UpdateShieldVisual()
     {
         if (!m_shield_renderer) return;
         float strength = Mathf.Clamp01(m_shield_hits_remaining / 3f);
-        m_shield_renderer.color = Color.Lerp(new Color(0.28f, 0.18f, 0.12f),
-            new Color(0.22f, 0.86f, 1f), strength);
-        m_shield_renderer.transform.localScale = new Vector3(0.64f * Mathf.Lerp(0.82f, 1f, strength), 0.22f, 1f);
+        m_shield_renderer.color = Color.Lerp(new Color(1f, 0.48f, 0.30f), Color.white, strength);
+        float scale = 0.72f * Mathf.Lerp(0.88f, 1f, strength);
+        m_shield_renderer.transform.localScale = new Vector3(scale, scale, 1f);
         m_shield_renderer.gameObject.SetActive(m_shield_hits_remaining > 0);
     }
 
