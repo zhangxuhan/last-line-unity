@@ -1,30 +1,86 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Player Bullet
-/// </summary>
 public class PlayerBullet : MonoBehaviour
 {
-	[Header("Parameter")]
-	public float m_move_speed = 5;
-	public float m_life_time = 2;
+    [Header("Lifetime")]
+    [SerializeField, Min(0.1f)] private float m_max_lifetime = 3f;
+    [SerializeField, Min(0.01f)] private float m_collision_radius = 0.12f;
+    [SerializeField, Min(0f)] private float m_viewport_margin = 0.1f;
 
-	//
-	void Update()
-	{
-		transform.position += new Vector3(0, 1, 0) * m_move_speed * Time.deltaTime;
+    private readonly HashSet<int> m_hit_enemy_ids = new HashSet<int>();
+    private Vector3 m_direction = Vector3.up;
+    private float m_speed;
+    private int m_damage;
+    private int m_remaining_penetration;
+    private float m_spawn_time;
+    private Camera m_camera;
+    private bool m_initialized;
 
-		m_life_time -= Time.deltaTime;
-		if (m_life_time <= 0)
-		{
-			DeleteObject();
-		}
-	}
+    public void Initialize(Vector3 direction, int damage, float speed, int penetration)
+    {
+        m_direction = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.up;
+        m_damage = Mathf.Max(0, damage);
+        m_speed = Mathf.Max(0f, speed);
+        m_remaining_penetration = Mathf.Max(0, penetration);
+        m_spawn_time = Time.time;
+        m_camera = Camera.main;
+        m_hit_enemy_ids.Clear();
+        m_initialized = true;
+    }
 
-	public void DeleteObject()
-	{
-		GameObject.Destroy(gameObject);
-	}
+    private void Update()
+    {
+        if (!m_initialized) return;
+
+        float distance = m_speed * Time.deltaTime;
+        Vector3 start = transform.position;
+        RaycastHit[] hits = Physics.SphereCastAll(start, m_collision_radius, m_direction, distance, ~0, QueryTriggerInteraction.Collide);
+        System.Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
+
+        foreach (RaycastHit hit in hits)
+        {
+            Enemy enemy = hit.collider.GetComponentInParent<Enemy>();
+            if (enemy && TryHit(enemy)) return;
+        }
+
+        transform.position = start + m_direction * distance;
+        if (Time.time - m_spawn_time >= m_max_lifetime || IsOutsideCamera()) Destroy(gameObject);
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (!m_initialized) return;
+        Enemy enemy = other.GetComponentInParent<Enemy>();
+        if (enemy) TryHit(enemy);
+    }
+
+    private bool TryHit(Enemy enemy)
+    {
+        if (!m_hit_enemy_ids.Add(enemy.GetInstanceID())) return false;
+        enemy.TakeDamage(m_damage);
+        if (m_remaining_penetration <= 0)
+        {
+            Destroy(gameObject);
+            return true;
+        }
+        m_remaining_penetration--;
+        return false;
+    }
+
+    private bool IsOutsideCamera()
+    {
+        if (!m_camera) return false;
+        Vector3 viewport = m_camera.WorldToViewportPoint(transform.position);
+        return viewport.z <= 0f
+            || viewport.x < -m_viewport_margin || viewport.x > 1f + m_viewport_margin
+            || viewport.y < -m_viewport_margin || viewport.y > 1f + m_viewport_margin;
+    }
+
+    private void OnValidate()
+    {
+        m_max_lifetime = Mathf.Max(0.1f, m_max_lifetime);
+        m_collision_radius = Mathf.Max(0.01f, m_collision_radius);
+        m_viewport_margin = Mathf.Max(0f, m_viewport_margin);
+    }
 }

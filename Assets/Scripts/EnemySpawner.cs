@@ -1,46 +1,47 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-
-/// <summary>
-/// Enemy SpawnPoint
-/// </summary>
 public class EnemySpawner : MonoBehaviour
 {
-	[Header("Prefab")]
-	public Enemy m_prefab_enemy;
+    [Header("Prefab")]
+    [SerializeField] private Enemy m_prefab_enemy;
+    [Header("Parameter")]
+    [SerializeField, Min(0.1f)] private float m_spawn_interval = 2f;
+    private Coroutine m_spawn_coroutine;
 
-	[Header("Parameter")]
-	public float m_spawn_interval = 2;
+    public void StartRunning()
+    {
+        StopRunning();
+        m_spawn_coroutine = StartCoroutine(MainCoroutine());
+    }
 
-	//------------------------------------------------------------------------------
+    public void StopRunning()
+    {
+        if (m_spawn_coroutine == null) return;
+        StopCoroutine(m_spawn_coroutine);
+        m_spawn_coroutine = null;
+    }
 
-	public void StartRunning()
-	{
-		StartCoroutine(MainCoroutine());
-	}
+    private IEnumerator MainCoroutine()
+    {
+        while (true)
+        {
+            if (m_prefab_enemy)
+            {
+                Enemy enemy = Instantiate(m_prefab_enemy, transform.parent);
+                enemy.transform.position = transform.position;
+            }
+            yield return new WaitForSeconds(m_spawn_interval);
+        }
+    }
 
-	private IEnumerator MainCoroutine()
-	{
-		while (true)
-		{
-			//spawn enemy
-			if (m_prefab_enemy)
-			{
-				Enemy enemy = Instantiate(m_prefab_enemy, transform.parent);
-				enemy.transform.position = transform.position;
-			}
+    private void OnDisable() => StopRunning();
 
-			yield return new WaitForSeconds(m_spawn_interval);
-		}
-	}
+    private void OnValidate() => m_spawn_interval = Mathf.Max(0.1f, m_spawn_interval);
 
-	//------------------------------------------------------------------------------
-
-	private void OnDrawGizmos()
-	{
-		Gizmos.color = Color.red;
-		Gizmos.DrawWireSphere(transform.position, 1.0f);
-	}
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, 1f);
+    }
 }

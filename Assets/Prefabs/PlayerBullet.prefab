@@ -126,8 +126,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7930eab431e0bd64aaa26ddc12a00d27, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_move_speed: 8
-  m_life_time: 2
+  m_max_lifetime: 3
+  m_collision_radius: 0.12
+  m_viewport_margin: 0.1
 --- !u!135 &4373417432918805550
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -136,7 +137,7 @@ SphereCollider:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6205013781952291633}
   m_Material: {fileID: 0}
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_Enabled: 1
   serializedVersion: 2
   m_Radius: 0.2
