@@ -24,10 +24,10 @@ public sealed class Task5AssetImportSettings : AssetPostprocessor
         AudioImporter importer = (AudioImporter)assetImporter;
         importer.forceToMono = true;
         importer.loadInBackground = false;
-        bool isMusic = assetPath.EndsWith("/bgm.ogg");
+        bool isMusic = assetPath.EndsWith("/bgm.mp3");
         importer.defaultSampleSettings = new AudioImporterSampleSettings
         {
-            loadType = isMusic ? AudioClipLoadType.CompressedInMemory : AudioClipLoadType.DecompressOnLoad,
+            loadType = isMusic ? AudioClipLoadType.Streaming : AudioClipLoadType.DecompressOnLoad,
             compressionFormat = AudioCompressionFormat.Vorbis,
             quality = isMusic ? 0.6f : 0.5f,
             sampleRateSetting = AudioSampleRateSetting.OptimizeSampleRate,

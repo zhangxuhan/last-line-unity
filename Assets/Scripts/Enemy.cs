@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Enemy : MonoBehaviour
@@ -28,6 +29,7 @@ public class Enemy : MonoBehaviour
     private Coroutine m_hit_feedback;
     private Vector3 m_base_root_scale;
     private Color m_visual_color = Color.white;
+    private static readonly List<Enemy> s_active_enemies = new List<Enemy>();
 
     public int ExperienceReward => m_experience;
 
@@ -62,12 +64,19 @@ public class Enemy : MonoBehaviour
         if (transform.position.y <= m_defense_line_y) BreachDefense();
     }
 
-    public void TakeDamage(float damage)
+    private void OnEnable()
+    {
+        if (!s_active_enemies.Contains(this)) s_active_enemies.Add(this);
+    }
+
+    public void TakeDamage(float damage, bool isCritical = false)
     {
         if (!m_initialized || m_is_settled || !m_stage_loop || !m_stage_loop.IsPlaying || damage <= 0) return;
 
+        float displayedDamage = Mathf.Min(m_current_hp, damage);
         m_current_hp -= damage;
         m_stage_loop.Feedback?.PlayHit(transform.position);
+        m_stage_loop.Feedback?.ShowDamage(transform.position, displayedDamage, isCritical);
         if (m_hit_feedback != null) StopCoroutine(m_hit_feedback);
         if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
         if (m_visual) m_visual.localScale = m_visual_base_scale;
@@ -149,6 +158,30 @@ public class Enemy : MonoBehaviour
         if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
     }
 
+    public static void StrikeFrontmost(StageLoop stageLoop)
+    {
+        Enemy target = null;
+        float lowestY = float.PositiveInfinity;
+        for (int index = s_active_enemies.Count - 1; index >= 0; index--)
+        {
+            Enemy enemy = s_active_enemies[index];
+            if (!enemy)
+            {
+                s_active_enemies.RemoveAt(index);
+                continue;
+            }
+            if (!enemy.m_initialized || enemy.m_is_settled || enemy.m_stage_loop != stageLoop) continue;
+            if (enemy.transform.position.y < lowestY)
+            {
+                lowestY = enemy.transform.position.y;
+                target = enemy;
+            }
+        }
+        if (!target) return;
+        target.m_stage_loop.Feedback?.PlayLightning(target.transform.position);
+        target.Die();
+    }
+
     private void UpdateWalkVisual()
     {
         if (!m_visual) return;
@@ -178,6 +211,7 @@ public class Enemy : MonoBehaviour
 
     private void OnDisable()
     {
+        s_active_enemies.Remove(this);
         if (m_hit_feedback != null) StopCoroutine(m_hit_feedback);
         if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
     }

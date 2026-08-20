@@ -60,15 +60,16 @@ public class EnemySpawner : MonoBehaviour
         enemy.transform.position = position;
         m_stage_loop.GetCurrentEnemyStats(out int maxHp, out float moveSpeed);
         enemy.Initialize(m_stage_loop, maxHp, moveSpeed, m_stage_loop.DefenseLineY,
-            RollArchetype(m_stage_loop.DifficultyStage));
+            RollArchetype(m_stage_loop.Level));
     }
 
-    private static Enemy.Archetype RollArchetype(int difficultyStage)
+    private static Enemy.Archetype RollArchetype(int playerLevel)
     {
-        if (difficultyStage < 1) return Enemy.Archetype.Normal;
+        if (playerLevel < 2) return Enemy.Archetype.Normal;
         float roll = Random.value;
-        float bruteChance = difficultyStage >= 2 ? 0.35f : 0.25f;
-        float runnerChance = difficultyStage >= 2 ? 0.30f : 0.25f;
+        float levelBonus = Mathf.Min(0.20f, (playerLevel - 2) * 0.04f);
+        float bruteChance = 0.10f + levelBonus;
+        float runnerChance = 0.10f + levelBonus;
         if (roll < bruteChance) return Enemy.Archetype.Brute;
         if (roll < bruteChance + runnerChance) return Enemy.Archetype.Runner;
         return Enemy.Archetype.Normal;

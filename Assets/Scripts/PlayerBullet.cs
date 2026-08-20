@@ -17,16 +17,18 @@ public class PlayerBullet : MonoBehaviour
     private float m_spawn_time;
     private Camera m_camera;
     private bool m_initialized;
+    private bool m_is_critical;
     private static int s_last_physics_sync_frame = -1;
     private static Sprite s_bullet_sprite;
     private static Material s_trail_material;
 
-    public void Initialize(Vector3 direction, float damage, float speed, int penetration)
+    public void Initialize(Vector3 direction, float damage, float speed, int penetration, bool isCritical = false)
     {
         m_direction = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.up;
         m_damage = Mathf.Max(0f, damage);
         m_speed = Mathf.Max(0f, speed);
         m_remaining_penetration = Mathf.Max(0, penetration);
+        m_is_critical = isCritical;
         m_spawn_time = Time.time;
         m_camera = Camera.main;
         m_hit_enemy_ids.Clear();
@@ -97,7 +99,7 @@ public class PlayerBullet : MonoBehaviour
     private bool TryHit(Enemy enemy)
     {
         if (!m_hit_enemy_ids.Add(enemy.GetInstanceID())) return false;
-        enemy.TakeDamage(m_damage);
+        enemy.TakeDamage(m_damage, m_is_critical);
         if (m_remaining_penetration <= 0)
         {
             StopRunning();

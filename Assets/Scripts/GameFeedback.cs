@@ -16,6 +16,7 @@ public sealed class GameFeedback : MonoBehaviour
     private Text m_defense_text;
     private AudioClip m_shoot, m_hit, m_enemy_death, m_breach, m_level_up, m_upgrade_select, m_game_over, m_bgm;
     private static Sprite s_white_sprite;
+    private static Font s_runtime_font;
 
     public void Initialize(Camera gameCamera, Transform stageRoot, Transform uiRoot, Text defenseText, float defenseLineY)
     {
@@ -100,6 +101,17 @@ public sealed class GameFeedback : MonoBehaviour
         if (m_music_source) m_music_source.Stop();
         Play(m_game_over, 0.55f);
         Shake(0.18f, 0.13f);
+    }
+
+    public void ShowDamage(Vector3 position, float damage, bool critical)
+    {
+        StartCoroutine(DamageNumberRoutine(position, damage, critical));
+    }
+
+    public void PlayLightning(Vector3 targetPosition)
+    {
+        StartCoroutine(LightningRoutine(targetPosition));
+        SpawnBurst(targetPosition, new Color(0.45f, 0.85f, 1f), 8, 0.18f, 0.25f);
     }
 
     public void PlayGameplayMusic()
@@ -210,6 +222,67 @@ public sealed class GameFeedback : MonoBehaviour
             yield return null;
         }
         if (piece) Destroy(piece);
+    }
+
+    private IEnumerator DamageNumberRoutine(Vector3 position, float damage, bool critical)
+    {
+        if (!s_runtime_font) s_runtime_font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        GameObject numberObject = new GameObject(critical ? "CriticalDamage" : "Damage", typeof(TextMesh));
+        numberObject.transform.SetParent(m_effect_root, false);
+        numberObject.transform.position = position + new Vector3(Random.Range(-0.08f, 0.08f), 0.32f, -0.1f);
+        TextMesh text = numberObject.GetComponent<TextMesh>();
+        text.font = s_runtime_font;
+        text.text = Mathf.Approximately(damage, Mathf.Round(damage)) ? $"{Mathf.RoundToInt(damage)}" : $"{damage:0.0}";
+        text.anchor = TextAnchor.MiddleCenter;
+        text.alignment = TextAlignment.Center;
+        text.fontSize = critical ? 82 : 64;
+        text.characterSize = critical ? 0.052f : 0.044f;
+        text.fontStyle = critical ? FontStyle.Bold : FontStyle.Normal;
+        Color baseColor = critical ? new Color(1f, 0.55f, 0.08f) : Color.white;
+        text.color = baseColor;
+        MeshRenderer renderer = numberObject.GetComponent<MeshRenderer>();
+        if (s_runtime_font) renderer.sharedMaterial = s_runtime_font.material;
+        renderer.sortingOrder = critical ? 12 : 11;
+
+        float elapsed = 0f;
+        const float duration = 0.55f;
+        while (elapsed < duration && numberObject)
+        {
+            float delta = Time.deltaTime;
+            elapsed += delta;
+            numberObject.transform.position += Vector3.up * 0.55f * delta;
+            Color faded = baseColor;
+            faded.a = 1f - Mathf.Clamp01(elapsed / duration);
+            text.color = faded;
+            yield return null;
+        }
+        if (numberObject) Destroy(numberObject);
+    }
+
+    private IEnumerator LightningRoutine(Vector3 targetPosition)
+    {
+        float topY = m_camera
+            ? m_camera.ViewportToWorldPoint(new Vector3(0.5f, 1f, Mathf.Abs(m_camera.transform.position.z))).y
+            : targetPosition.y + 5f;
+        float height = Mathf.Max(0.2f, topY - targetPosition.y);
+        GameObject bolt = CreateSpriteObject("LightningBolt",
+            new Vector3(targetPosition.x, targetPosition.y + height * 0.5f, -0.15f),
+            new Color(0.55f, 0.90f, 1f), 9);
+        bolt.transform.localScale = new Vector3(0.075f, height, 1f);
+        SpriteRenderer renderer = bolt.GetComponent<SpriteRenderer>();
+        float elapsed = 0f;
+        const float duration = 0.16f;
+        while (elapsed < duration && bolt)
+        {
+            elapsed += Time.deltaTime;
+            bolt.transform.position = new Vector3(targetPosition.x + Random.Range(-0.035f, 0.035f),
+                targetPosition.y + height * 0.5f, -0.15f);
+            Color color = renderer.color;
+            color.a = 1f - Mathf.Clamp01(elapsed / duration);
+            renderer.color = color;
+            yield return null;
+        }
+        if (bolt) Destroy(bolt);
     }
     private GameObject CreateSpriteObject(string objectName, Vector3 position, Color color, int order)
     {

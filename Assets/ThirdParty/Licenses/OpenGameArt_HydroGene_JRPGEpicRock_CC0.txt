@@ -1,0 +1,7 @@
+JRPG Epic Rock Battle Theme #1
+Composer: HydroGene
+Source: https://opengameart.org/content/jrpg-epic-rock-battle-theme-1
+Downloaded file: jrpg_battle_loop.mp3
+Project file: Assets/Resources/Task5/Audio/bgm.mp3
+License: Creative Commons CC0 1.0 Universal
+Retrieved: 2026-08-20

@@ -34,8 +34,17 @@ Assets listed here are used only for presentation and feedback in this project. 
 - Provider: Kenney
 - Source: https://kenney.nl/assets/music-jingles
 - License: Creative Commons CC0 1.0 Universal
-- Used files: `bgm.ogg` (from `jingles_NES00.ogg`), `game_over.ogg` (from `jingles_NES13.ogg`)
-- Used for: looping gameplay background music and distinct defeat feedback
+- Used file: `game_over.ogg` (from `jingles_NES13.ogg`)
+- Used for: distinct defeat feedback
+- Retrieved: 2026-08-20
+
+## JRPG Epic Rock Battle Theme #1
+
+- Composer: HydroGene
+- Source: https://opengameart.org/content/jrpg-epic-rock-battle-theme-1
+- License: Creative Commons CC0 1.0 Universal
+- Used file: `bgm.mp3` (downloaded as `jrpg_battle_loop.mp3`)
+- Used for: looping gameplay background music
 - Retrieved: 2026-08-20
 
 Copies of the license text supplied with each downloaded archive are stored in `Assets/ThirdParty/Licenses`.

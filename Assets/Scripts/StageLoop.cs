@@ -53,6 +53,8 @@ public class StageLoop : MonoBehaviour
     private Text m_level_text;
     private Text m_experience_text;
     private Text m_game_over_text;
+    private Toggle m_auto_fire_toggle;
+    private bool m_auto_fire_enabled;
     private RectTransform m_experience_fill_rect;
     private Text m_experience_percent_text;
     private GameObject m_upgrade_panel;
@@ -183,6 +185,7 @@ public class StageLoop : MonoBehaviour
         m_player = Instantiate(m_prefab_player, m_stage_transform);
         m_player.transform.position = new Vector3(0f, GetCameraBottom() + m_player_bottom_offset, 0f);
         m_player.InitializeForStage();
+        m_player.SetAutoFire(m_auto_fire_enabled);
 
         EnemySpawner spawner = Instantiate(m_prefab_enemy_spawner, m_stage_transform);
         spawner.Initialize(this, m_game_camera, m_stage_transform);
@@ -442,6 +445,7 @@ public class StageLoop : MonoBehaviour
             new Vector2(-10f, -10f), new Vector2(1f, 1f), TextAnchor.UpperRight);
         m_level_text = CreateText("Level", new Vector2(1f, 0f), new Vector2(1f, 0f),
             new Vector2(-10f, 10f), new Vector2(1f, 0f), TextAnchor.LowerRight);
+        CreateAutoFireToggle();
         m_experience_text = CreateText("Experience", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
             new Vector2(0f, 42f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
         CreateExperienceBar();
@@ -451,6 +455,7 @@ public class StageLoop : MonoBehaviour
         m_game_over_text.rectTransform.sizeDelta = new Vector2(620f, 360f);
         m_game_over_text.fontSize = 32;
         m_game_over_text.color = Color.white;
+        StyleText(m_stage_score_text, 26, new Color(0.82f, 0.95f, 1f));
     }
 
     private Text CreateText(string name, Vector2 anchorMin, Vector2 anchorMax,
@@ -464,7 +469,68 @@ public class StageLoop : MonoBehaviour
         text.rectTransform.pivot = pivot;
         text.rectTransform.sizeDelta = new Vector2(400f, 40f);
         text.alignment = alignment;
+        StyleText(text, 22, Color.white);
         return text;
+    }
+
+    private void CreateAutoFireToggle()
+    {
+        GameObject root = new GameObject("AutoFire", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Toggle));
+        RectTransform rect = root.GetComponent<RectTransform>();
+        rect.SetParent(m_stage_score_text.transform.parent, false);
+        rect.anchorMin = new Vector2(0f, 0f);
+        rect.anchorMax = new Vector2(0f, 0f);
+        rect.pivot = new Vector2(0f, 0f);
+        rect.anchoredPosition = new Vector2(14f, 62f);
+        rect.sizeDelta = new Vector2(190f, 46f);
+        Image background = root.GetComponent<Image>();
+        background.color = new Color(0.035f, 0.09f, 0.14f, 0.92f);
+
+        GameObject check = new GameObject("Checkmark", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform checkRect = check.GetComponent<RectTransform>();
+        checkRect.SetParent(rect, false);
+        checkRect.anchorMin = new Vector2(0f, 0.5f);
+        checkRect.anchorMax = new Vector2(0f, 0.5f);
+        checkRect.pivot = new Vector2(0f, 0.5f);
+        checkRect.anchoredPosition = new Vector2(12f, 0f);
+        checkRect.sizeDelta = new Vector2(25f, 25f);
+        Image checkImage = check.GetComponent<Image>();
+        checkImage.color = new Color(0.18f, 0.92f, 1f);
+
+        Text label = Instantiate(m_stage_score_text, rect);
+        label.name = "Label";
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = new Vector2(48f, 0f);
+        label.rectTransform.offsetMax = new Vector2(-8f, 0f);
+        label.alignment = TextAnchor.MiddleLeft;
+        label.text = "AUTO FIRE";
+        label.raycastTarget = false;
+        StyleText(label, 19, Color.white);
+
+        m_auto_fire_toggle = root.GetComponent<Toggle>();
+        m_auto_fire_toggle.targetGraphic = background;
+        m_auto_fire_toggle.graphic = checkImage;
+        m_auto_fire_toggle.isOn = m_auto_fire_enabled;
+        m_auto_fire_toggle.onValueChanged.AddListener(SetAutoFire);
+    }
+
+    private void SetAutoFire(bool enabled)
+    {
+        m_auto_fire_enabled = enabled;
+        if (m_player) m_player.SetAutoFire(enabled);
+    }
+
+    private static void StyleText(Text text, int size, Color color)
+    {
+        if (!text) return;
+        text.fontSize = size;
+        text.fontStyle = FontStyle.Bold;
+        text.color = color;
+        Outline outline = text.GetComponent<Outline>();
+        if (!outline) outline = text.gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0.04f, 0.07f, 0.9f);
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
     }
 
     private void RefreshHud()
@@ -578,6 +644,7 @@ public class StageLoop : MonoBehaviour
             optionText.fontSize = 23;
             optionText.color = Color.white;
             optionText.raycastTarget = false;
+            StyleText(optionText, 21, Color.white);
             m_upgrade_button_texts[index] = optionText;
         }
 

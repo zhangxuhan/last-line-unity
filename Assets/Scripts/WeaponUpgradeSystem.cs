@@ -2,7 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 
-public enum WeaponUpgradeType { Damage, FireInterval, ProjectileSpeed, ProjectileCount, Penetration }
+public enum WeaponUpgradeType
+{
+    Damage, FireInterval, ProjectileSpeed, ProjectileCount, Penetration,
+    CriticalChance, BurstFire, Lightning
+}
 public enum UpgradeRarity { R, SR, SSR }
 
 public readonly struct WeaponUpgradeChoice
@@ -34,6 +38,11 @@ public sealed class WeaponRuntimeState
     public float ProjectileSpeed { get; private set; }
     public int ProjectileCount { get; private set; }
     public int PenetrationCount { get; private set; }
+    public float CriticalChance { get; private set; }
+    public float CriticalMultiplier => 2f;
+    public int BurstCount { get; private set; } = 1;
+    public int LightningLevel { get; private set; }
+    public float LightningInterval => LightningLevel <= 0 ? float.PositiveInfinity : Math.Max(2.5f, 6f - (LightningLevel - 1) * 1.25f);
     public float SpreadAngleStep { get; }
 
     public WeaponRuntimeState(float damage, float fireInterval, float projectileSpeed,
@@ -54,6 +63,9 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.FireInterval: return FireInterval > MinimumFireInterval + LimitEpsilon;
             case WeaponUpgradeType.ProjectileCount: return ProjectileCount < MaximumProjectileCount;
             case WeaponUpgradeType.Penetration: return PenetrationCount < MaximumPenetrationCount;
+            case WeaponUpgradeType.CriticalChance: return CriticalChance < 0.5f - LimitEpsilon;
+            case WeaponUpgradeType.BurstFire: return BurstCount < 3;
+            case WeaponUpgradeType.Lightning: return LightningLevel < 3;
             default: return true;
         }
     }
@@ -68,6 +80,9 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.ProjectileSpeed: ProjectileSpeed *= GetPowerMultiplier(choice.Rarity); break;
             case WeaponUpgradeType.ProjectileCount: ProjectileCount = Math.Min(MaximumProjectileCount, ProjectileCount + GetDiscreteIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.Penetration: PenetrationCount = Math.Min(MaximumPenetrationCount, PenetrationCount + GetDiscreteIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.CriticalChance: CriticalChance = Math.Min(0.5f, CriticalChance + GetCriticalChanceIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(3, BurstCount + 1); break;
+            case WeaponUpgradeType.Lightning: LightningLevel = Math.Min(3, LightningLevel + 1); break;
             default: return false;
         }
         return true;
@@ -80,6 +95,7 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.Damage: return Damage * GetPowerMultiplier(choice.Rarity);
             case WeaponUpgradeType.FireInterval: return Math.Max(MinimumFireInterval, FireInterval * GetIntervalMultiplier(choice.Rarity));
             case WeaponUpgradeType.ProjectileSpeed: return ProjectileSpeed * GetPowerMultiplier(choice.Rarity);
+            case WeaponUpgradeType.CriticalChance: return Math.Min(0.5f, CriticalChance + GetCriticalChanceIncrease(choice.Rarity));
             default: return 0f;
         }
     }
@@ -91,6 +107,8 @@ public sealed class WeaponRuntimeState
         {
             case WeaponUpgradeType.ProjectileCount: return Math.Min(MaximumProjectileCount, ProjectileCount + increase);
             case WeaponUpgradeType.Penetration: return Math.Min(MaximumPenetrationCount, PenetrationCount + increase);
+            case WeaponUpgradeType.BurstFire: return Math.Min(3, BurstCount + 1);
+            case WeaponUpgradeType.Lightning: return Math.Min(3, LightningLevel + 1);
             default: return 0;
         }
     }
@@ -100,6 +118,8 @@ public sealed class WeaponRuntimeState
     public static float GetIntervalMultiplier(UpgradeRarity rarity)
         => rarity == UpgradeRarity.R ? 0.90f : rarity == UpgradeRarity.SR ? 0.85f : 0.75f;
     public static int GetDiscreteIncrease(UpgradeRarity rarity) => rarity == UpgradeRarity.SSR ? 2 : 1;
+    public static float GetCriticalChanceIncrease(UpgradeRarity rarity)
+        => rarity == UpgradeRarity.R ? 0.05f : rarity == UpgradeRarity.SR ? 0.10f : 0.15f;
 }
 
 public static class WeaponUpgradeSystem
@@ -107,7 +127,8 @@ public static class WeaponUpgradeSystem
     private static readonly WeaponUpgradeType[] AllTypes =
     {
         WeaponUpgradeType.Damage, WeaponUpgradeType.FireInterval, WeaponUpgradeType.ProjectileSpeed,
-        WeaponUpgradeType.ProjectileCount, WeaponUpgradeType.Penetration
+        WeaponUpgradeType.ProjectileCount, WeaponUpgradeType.Penetration,
+        WeaponUpgradeType.CriticalChance, WeaponUpgradeType.BurstFire, WeaponUpgradeType.Lightning
     };
 
     public static List<WeaponUpgradeChoice> GetRandomChoices(WeaponRuntimeState weapon, int maximumCount, Random random)
@@ -150,6 +171,12 @@ public static class WeaponUpgradeSystem
                 return new WeaponUpgradeOption(choice, "Multishot", $"Fire {WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} additional projectile(s).", $"{weapon.ProjectileCount} -> {weapon.GetNextIntValue(choice)} projectiles");
             case WeaponUpgradeType.Penetration:
                 return new WeaponUpgradeOption(choice, "Piercing Rounds", $"Penetrate {WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} additional enemy(s).", $"{weapon.PenetrationCount} -> {weapon.GetNextIntValue(choice)} extra penetration");
+            case WeaponUpgradeType.CriticalChance:
+                return new WeaponUpgradeOption(choice, "Critical Rounds", "Shots can deal double damage.", $"{weapon.CriticalChance * 100f:0}% -> {weapon.GetNextFloatValue(choice) * 100f:0}% crit chance");
+            case WeaponUpgradeType.BurstFire:
+                return new WeaponUpgradeOption(choice, "Burst Module", "Fire an additional rapid volley per attack.", $"{weapon.BurstCount} -> {weapon.GetNextIntValue(choice)} volleys");
+            case WeaponUpgradeType.Lightning:
+                return new WeaponUpgradeOption(choice, "Auto Lightning", "Periodically execute the enemy closest to the defense line.", $"Level {weapon.LightningLevel} -> {weapon.GetNextIntValue(choice)}");
             default: throw new ArgumentOutOfRangeException(nameof(choice));
         }
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class Player : MonoBehaviour
 {
@@ -32,6 +33,9 @@ public class Player : MonoBehaviour
     private bool m_block_fire_until_release;
     private Transform m_visual;
     private Transform m_muzzle;
+    private Coroutine m_burst_coroutine;
+    private bool m_auto_fire;
+    private float m_next_lightning_time;
 
     public WeaponRuntimeState RuntimeWeapon => m_runtime_weapon;
 
@@ -48,20 +52,34 @@ public class Player : MonoBehaviour
         StopRunning();
         m_camera = Camera.main;
         m_next_shot_time = Time.time;
+        m_next_lightning_time = Time.time + (m_runtime_weapon != null ? m_runtime_weapon.LightningInterval : float.PositiveInfinity);
         m_block_fire_until_release = true;
         m_main_coroutine = StartCoroutine(MainCoroutine());
     }
 
     public void StopRunning()
     {
-        if (m_main_coroutine == null) return;
-        StopCoroutine(m_main_coroutine);
-        m_main_coroutine = null;
+        if (m_main_coroutine != null)
+        {
+            StopCoroutine(m_main_coroutine);
+            m_main_coroutine = null;
+        }
+        if (m_burst_coroutine != null)
+        {
+            StopCoroutine(m_burst_coroutine);
+            m_burst_coroutine = null;
+        }
     }
 
     public bool TryApplyUpgrade(WeaponUpgradeChoice choice)
     {
         return m_runtime_weapon != null && m_runtime_weapon.TryApply(choice);
+    }
+
+    public void SetAutoFire(bool enabled)
+    {
+        m_auto_fire = enabled;
+        if (enabled) m_block_fire_until_release = false;
     }
 
     private IEnumerator MainCoroutine()
@@ -70,10 +88,13 @@ public class Player : MonoBehaviour
         {
             UpdateMovement();
             UpdateAimDirection();
+            UpdateLightning();
             if (!Input.GetMouseButton(0)) m_block_fire_until_release = false;
-            if (!m_block_fire_until_release && Input.GetMouseButton(0) && Time.time >= m_next_shot_time)
+            bool pointerOverUi = EventSystem.current && EventSystem.current.IsPointerOverGameObject();
+            bool wantsToFire = m_auto_fire || (!pointerOverUi && !m_block_fire_until_release && Input.GetMouseButton(0));
+            if (wantsToFire && Time.time >= m_next_shot_time)
             {
-                Fire();
+                if (m_burst_coroutine == null) m_burst_coroutine = StartCoroutine(FireBurst());
                 m_next_shot_time = Time.time + m_runtime_weapon.FireInterval;
             }
             yield return null;
@@ -126,7 +147,19 @@ public class Player : MonoBehaviour
         return false;
     }
 
-    private void Fire()
+    private IEnumerator FireBurst()
+    {
+        int burstCount = m_runtime_weapon != null ? m_runtime_weapon.BurstCount : 1;
+        for (int burst = 0; burst < burstCount; burst++)
+        {
+            if (!StageLoop.Instance || !StageLoop.Instance.IsPlaying) break;
+            FireVolley();
+            if (burst + 1 < burstCount) yield return new WaitForSeconds(0.065f);
+        }
+        m_burst_coroutine = null;
+    }
+
+    private void FireVolley()
     {
         if (!m_prefab_player_bullet || m_runtime_weapon == null || !StageLoop.Instance || !StageLoop.Instance.IsPlaying) return;
         Vector3 muzzlePosition = m_muzzle ? m_muzzle.position : transform.position + m_aim_direction * m_muzzle_offset;
@@ -138,8 +171,18 @@ public class Player : MonoBehaviour
             Vector3 direction = Quaternion.AngleAxis(angleOffset, Vector3.forward) * m_aim_direction;
             PlayerBullet bullet = Instantiate(m_prefab_player_bullet, transform.parent);
             bullet.transform.position = muzzlePosition;
-            bullet.Initialize(direction, m_runtime_weapon.Damage, m_runtime_weapon.ProjectileSpeed, m_runtime_weapon.PenetrationCount);
+            bool critical = UnityEngine.Random.value < m_runtime_weapon.CriticalChance;
+            float damage = critical ? m_runtime_weapon.Damage * m_runtime_weapon.CriticalMultiplier : m_runtime_weapon.Damage;
+            bullet.Initialize(direction, damage, m_runtime_weapon.ProjectileSpeed,
+                m_runtime_weapon.PenetrationCount, critical);
         }
+    }
+
+    private void UpdateLightning()
+    {
+        if (m_runtime_weapon == null || m_runtime_weapon.LightningLevel <= 0 || Time.time < m_next_lightning_time) return;
+        m_next_lightning_time = Time.time + m_runtime_weapon.LightningInterval;
+        Enemy.StrikeFrontmost(StageLoop.Instance);
     }
 
     private void SetupVisual()
