@@ -45,6 +45,8 @@ public class StageLoop : MonoBehaviour
     [SerializeField, Range(0.01f, 1f)] private float m_spawn_interval_multiplier_per_stage = 0.9f;
 
     private Coroutine m_stage_coroutine;
+    private Coroutine m_upgrade_panel_animation;
+    private GameFeedback m_feedback;
     private GameObject m_stage_ui_root;
     private Text m_defense_text;
     private Text m_time_text;
@@ -70,6 +72,7 @@ public class StageLoop : MonoBehaviour
 
     public GameState State { get; private set; } = GameState.Title;
     public bool IsPlaying => State == GameState.Playing;
+    public GameFeedback Feedback => m_feedback;
     public float DefenseLineY => GetCameraBottom() + m_defense_bottom_offset;
     public float SurvivalTime => m_survival_time;
     public int Level => m_progression != null ? m_progression.Level : PlayerProgression.InitialLevel;
@@ -98,6 +101,8 @@ public class StageLoop : MonoBehaviour
         m_upgrade_random = new System.Random();
         if (!m_game_camera) m_game_camera = Camera.main;
         CreateRuntimeUi();
+        m_feedback = GetComponent<GameFeedback>();
+        if (!m_feedback) m_feedback = gameObject.AddComponent<GameFeedback>();
         SetState(GameState.Title);
     }
 
@@ -163,6 +168,8 @@ public class StageLoop : MonoBehaviour
         CleanupStageObjects();
         Time.timeScale = 1f;
         if (!m_game_camera) m_game_camera = Camera.main;
+        m_feedback.StopAudio();
+        m_feedback.Initialize(m_game_camera, m_stage_transform, m_stage_ui_root.transform, m_defense_text, DefenseLineY);
 
         m_game_score = 0;
         m_breach_count = 0;
@@ -217,6 +224,7 @@ public class StageLoop : MonoBehaviour
         SetState(GameState.LevelUp);
         m_player.StopRunning();
         Time.timeScale = 0f;
+        m_feedback.PlayLevelUp();
         PrepareUpgradeChoices();
     }
 
@@ -228,6 +236,8 @@ public class StageLoop : MonoBehaviour
         m_current_upgrade_count = choices.Count;
         m_upgrade_selection_locked = false;
         m_accept_upgrade_input_frame = Time.frameCount + 1;
+        if (m_upgrade_panel_animation != null) StopCoroutine(m_upgrade_panel_animation);
+        m_upgrade_panel_animation = StartCoroutine(AnimateUpgradePanel());
         if (m_upgrade_header_text) m_upgrade_header_text.text = $"LEVEL UP\nLevel {Level}\nChoose one upgrade";
 
         for (int index = 0; index < m_upgrade_buttons.Length; index++)
@@ -263,6 +273,7 @@ public class StageLoop : MonoBehaviour
 
         m_upgrade_selection_locked = true;
         foreach (Button button in m_upgrade_buttons) button.interactable = false;
+        m_feedback.PlayUpgradeSelect();
 
         if (!m_player || !m_player.TryApplyUpgrade(m_current_upgrade_choices[index]))
         {
@@ -304,6 +315,7 @@ public class StageLoop : MonoBehaviour
         Time.timeScale = 1f;
         m_progression.DiscardPendingUpgrades();
         SetState(GameState.GameOver);
+        m_feedback.PlayGameOver();
         CleanupStageObjects();
         RefreshHud();
         RefreshGameOverText();
@@ -313,6 +325,8 @@ public class StageLoop : MonoBehaviour
     {
         Time.timeScale = 1f;
         CleanupStageObjects();
+        m_feedback.ClearTransient();
+        m_feedback.StopAudio();
         SetState(GameState.Title);
         m_game_score = 0;
         m_breach_count = 0;
@@ -329,6 +343,27 @@ public class StageLoop : MonoBehaviour
         if (m_stage_ui_root) m_stage_ui_root.SetActive(state != GameState.Title);
         if (m_game_over_text) m_game_over_text.gameObject.SetActive(state == GameState.GameOver);
         if (m_upgrade_panel) m_upgrade_panel.SetActive(state == GameState.LevelUp);
+    }
+
+    private IEnumerator AnimateUpgradePanel()
+    {
+        if (!m_upgrade_panel) yield break;
+        RectTransform panel = m_upgrade_panel.GetComponent<RectTransform>();
+        CanvasGroup group = m_upgrade_panel.GetComponent<CanvasGroup>();
+        if (!group) group = m_upgrade_panel.AddComponent<CanvasGroup>();
+        float elapsed = 0f;
+        const float duration = 0.14f;
+        while (elapsed < duration && State == GameState.LevelUp)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / duration));
+            group.alpha = progress;
+            panel.localScale = Vector3.one * Mathf.Lerp(0.96f, 1f, progress);
+            yield return null;
+        }
+        group.alpha = 1f;
+        panel.localScale = Vector3.one;
+        m_upgrade_panel_animation = null;
     }
 
     private int GetDifficultyStage()
@@ -591,6 +626,8 @@ public class StageLoop : MonoBehaviour
         Time.timeScale = 1f;
         StopStageCoroutine();
         CleanupStageObjects();
+        m_feedback?.ClearTransient();
+        m_feedback?.StopAudio();
         State = GameState.Title;
         if (m_upgrade_panel) m_upgrade_panel.SetActive(false);
     }

@@ -30,11 +30,14 @@ public class Player : MonoBehaviour
     private Vector3 m_aim_direction = Vector3.up;
     private float m_next_shot_time;
     private bool m_block_fire_until_release;
+    private Transform m_visual;
+    private Transform m_muzzle;
 
     public WeaponRuntimeState RuntimeWeapon => m_runtime_weapon;
 
     public void InitializeForStage()
     {
+        SetupVisual();
         m_runtime_weapon = new WeaponRuntimeState(m_weapon.damage, m_weapon.shotInterval,
             m_weapon.bulletSpeed, m_weapon.projectileCount, m_weapon.penetration, m_weapon.spreadAngleStep);
         ResumeRunning();
@@ -109,6 +112,11 @@ public class Player : MonoBehaviour
         Vector3 direction = mouseWorld - transform.position;
         direction.z = 0f;
         if (direction.sqrMagnitude > 0.0001f) m_aim_direction = direction.normalized;
+        if (m_visual)
+        {
+            float angle = Vector3.SignedAngle(Vector3.right, m_aim_direction, Vector3.forward);
+            m_visual.localRotation = Quaternion.Euler(0f, 0f, angle);
+        }
     }
 
     private static bool TryGetPlanePoint(Ray ray, Plane plane, out Vector3 point)
@@ -121,15 +129,34 @@ public class Player : MonoBehaviour
     private void Fire()
     {
         if (!m_prefab_player_bullet || m_runtime_weapon == null || !StageLoop.Instance || !StageLoop.Instance.IsPlaying) return;
+        Vector3 muzzlePosition = m_muzzle ? m_muzzle.position : transform.position + m_aim_direction * m_muzzle_offset;
+        StageLoop.Instance.Feedback?.PlayShoot(muzzlePosition, m_aim_direction);
         int count = m_runtime_weapon.ProjectileCount;
         for (int index = 0; index < count; index++)
         {
             float angleOffset = (index - (count - 1) / 2f) * m_runtime_weapon.SpreadAngleStep;
             Vector3 direction = Quaternion.AngleAxis(angleOffset, Vector3.forward) * m_aim_direction;
             PlayerBullet bullet = Instantiate(m_prefab_player_bullet, transform.parent);
-            bullet.transform.position = transform.position + direction * m_muzzle_offset;
+            bullet.transform.position = muzzlePosition;
             bullet.Initialize(direction, m_runtime_weapon.Damage, m_runtime_weapon.ProjectileSpeed, m_runtime_weapon.PenetrationCount);
         }
+    }
+
+    private void SetupVisual()
+    {
+        if (m_visual) return;
+        foreach (MeshRenderer mesh in GetComponentsInChildren<MeshRenderer>(true)) mesh.enabled = false;
+        GameObject visualObject = new GameObject("AimVisual", typeof(SpriteRenderer));
+        m_visual = visualObject.transform;
+        m_visual.SetParent(transform, false);
+        SpriteRenderer sprite = visualObject.GetComponent<SpriteRenderer>();
+        sprite.sprite = Resources.Load<Sprite>("Task5/Art/player");
+        sprite.sortingOrder = 2;
+        m_visual.localScale = Vector3.one * 1.55f;
+        GameObject muzzleObject = new GameObject("Muzzle");
+        m_muzzle = muzzleObject.transform;
+        m_muzzle.SetParent(m_visual, false);
+        m_muzzle.localPosition = new Vector3(m_muzzle_offset / 1.55f, 0f, 0f);
     }
 
     private void OnDisable() => StopRunning();

@@ -18,6 +18,8 @@ public class PlayerBullet : MonoBehaviour
     private Camera m_camera;
     private bool m_initialized;
     private static int s_last_physics_sync_frame = -1;
+    private static Sprite s_bullet_sprite;
+    private static Material s_trail_material;
 
     public void Initialize(Vector3 direction, float damage, float speed, int penetration)
     {
@@ -28,6 +30,7 @@ public class PlayerBullet : MonoBehaviour
         m_spawn_time = Time.time;
         m_camera = Camera.main;
         m_hit_enemy_ids.Clear();
+        SetupVisual();
         m_initialized = true;
     }
 
@@ -113,6 +116,44 @@ public class PlayerBullet : MonoBehaviour
         return viewport.z <= 0f
             || viewport.x < -m_viewport_margin || viewport.x > 1f + m_viewport_margin
             || viewport.y < -m_viewport_margin || viewport.y > 1f + m_viewport_margin;
+    }
+
+    private void SetupVisual()
+    {
+        foreach (MeshRenderer mesh in GetComponentsInChildren<MeshRenderer>(true)) mesh.enabled = false;
+        if (!s_bullet_sprite)
+            s_bullet_sprite = Sprite.Create(Texture2D.whiteTexture,
+                new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height),
+                new Vector2(0.5f, 0.5f), 4f);
+        SpriteRenderer sprite = GetComponentInChildren<SpriteRenderer>();
+        if (!sprite)
+        {
+            GameObject visual = new GameObject("Visual", typeof(SpriteRenderer));
+            visual.transform.SetParent(transform, false);
+            sprite = visual.GetComponent<SpriteRenderer>();
+        }
+        sprite.sprite = s_bullet_sprite;
+        sprite.color = new Color(1f, 0.83f, 0.24f);
+        sprite.sortingOrder = 3;
+        sprite.transform.localScale = new Vector3(0.07f, 0.24f, 1f);
+        sprite.transform.up = m_direction;
+
+        TrailRenderer trail = GetComponent<TrailRenderer>();
+        if (!trail) trail = gameObject.AddComponent<TrailRenderer>();
+        if (!s_trail_material)
+        {
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader) s_trail_material = new Material(shader) { name = "Task5 Shared Bullet Trail" };
+        }
+        if (s_trail_material) trail.sharedMaterial = s_trail_material;
+        trail.time = 0.075f;
+        trail.startWidth = 0.055f;
+        trail.endWidth = 0f;
+        trail.minVertexDistance = 0.04f;
+        trail.startColor = new Color(1f, 0.80f, 0.20f, 0.72f);
+        trail.endColor = new Color(1f, 0.45f, 0.08f, 0f);
+        trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        trail.receiveShadows = false;
     }
 
     private void OnValidate()
