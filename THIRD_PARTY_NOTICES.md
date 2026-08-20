@@ -29,4 +29,13 @@ Assets listed here are used only for presentation and feedback in this project. 
 - Used for: upgrade selection feedback
 - Retrieved: 2026-08-20
 
+## Kenney Music Jingles
+
+- Provider: Kenney
+- Source: https://kenney.nl/assets/music-jingles
+- License: Creative Commons CC0 1.0 Universal
+- Used files: `bgm.ogg` (from `jingles_NES00.ogg`), `game_over.ogg` (from `jingles_NES13.ogg`)
+- Used for: looping gameplay background music and distinct defeat feedback
+- Retrieved: 2026-08-20
+
 Copies of the license text supplied with each downloaded archive are stored in `Assets/ThirdParty/Licenses`.

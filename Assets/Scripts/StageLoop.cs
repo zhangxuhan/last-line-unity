@@ -170,6 +170,7 @@ public class StageLoop : MonoBehaviour
         if (!m_game_camera) m_game_camera = Camera.main;
         m_feedback.StopAudio();
         m_feedback.Initialize(m_game_camera, m_stage_transform, m_stage_ui_root.transform, m_defense_text, DefenseLineY);
+        m_feedback.PlayGameplayMusic();
 
         m_game_score = 0;
         m_breach_count = 0;

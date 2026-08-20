@@ -6,6 +6,7 @@ public sealed class GameFeedback : MonoBehaviour
 {
     private const string AudioRoot = "Task5/Audio/";
     private AudioSource m_audio_source;
+    private AudioSource m_music_source;
     private Camera m_camera;
     private Transform m_effect_root;
     private Vector3 m_camera_home;
@@ -13,7 +14,7 @@ public sealed class GameFeedback : MonoBehaviour
     private Coroutine m_defense_flash;
     private Image m_edge_flash;
     private Text m_defense_text;
-    private AudioClip m_shoot, m_hit, m_enemy_death, m_breach, m_level_up, m_upgrade_select, m_game_over;
+    private AudioClip m_shoot, m_hit, m_enemy_death, m_breach, m_level_up, m_upgrade_select, m_game_over, m_bgm;
     private static Sprite s_white_sprite;
 
     public void Initialize(Camera gameCamera, Transform stageRoot, Transform uiRoot, Text defenseText, float defenseLineY)
@@ -28,6 +29,14 @@ public sealed class GameFeedback : MonoBehaviour
             m_audio_source.playOnAwake = false;
             m_audio_source.spatialBlend = 0f;
         }
+        if (!m_music_source)
+        {
+            m_music_source = gameObject.AddComponent<AudioSource>();
+            m_music_source.playOnAwake = false;
+            m_music_source.spatialBlend = 0f;
+            m_music_source.loop = true;
+            m_music_source.volume = 0.12f;
+        }
         m_shoot = Resources.Load<AudioClip>(AudioRoot + "shoot");
         m_hit = Resources.Load<AudioClip>(AudioRoot + "hit");
         m_enemy_death = Resources.Load<AudioClip>(AudioRoot + "enemy_death");
@@ -35,6 +44,7 @@ public sealed class GameFeedback : MonoBehaviour
         m_level_up = Resources.Load<AudioClip>(AudioRoot + "level_up");
         m_upgrade_select = Resources.Load<AudioClip>(AudioRoot + "upgrade_select");
         m_game_over = Resources.Load<AudioClip>(AudioRoot + "game_over");
+        m_bgm = Resources.Load<AudioClip>(AudioRoot + "bgm");
 
         if (!m_effect_root)
         {
@@ -87,8 +97,16 @@ public sealed class GameFeedback : MonoBehaviour
     public void PlayUpgradeSelect() => Play(m_upgrade_select, 0.40f);
     public void PlayGameOver()
     {
+        if (m_music_source) m_music_source.Stop();
         Play(m_game_over, 0.55f);
         Shake(0.18f, 0.13f);
+    }
+
+    public void PlayGameplayMusic()
+    {
+        if (!m_music_source || !m_bgm) return;
+        if (m_music_source.clip != m_bgm) m_music_source.clip = m_bgm;
+        if (!m_music_source.isPlaying) m_music_source.Play();
     }
 
     public void ClearTransient()
@@ -106,6 +124,7 @@ public sealed class GameFeedback : MonoBehaviour
     public void StopAudio()
     {
         if (m_audio_source) m_audio_source.Stop();
+        if (m_music_source) m_music_source.Stop();
     }
     private void Play(AudioClip clip, float volume)
     {

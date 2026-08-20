@@ -62,7 +62,9 @@ public class PlayerBullet : MonoBehaviour
         foreach (RaycastHit hit in hits)
         {
             Enemy enemy = hit.collider.GetComponentInParent<Enemy>();
-            if (enemy && TryHit(enemy)) return;
+            if (!enemy) continue;
+            transform.position = start + m_direction * hit.distance;
+            if (TryHit(enemy)) return;
         }
 
         transform.position = start + m_direction * distance;
@@ -82,6 +84,14 @@ public class PlayerBullet : MonoBehaviour
         m_initialized = false;
         foreach (Collider colliderComponent in GetComponentsInChildren<Collider>())
             colliderComponent.enabled = false;
+        foreach (SpriteRenderer sprite in GetComponentsInChildren<SpriteRenderer>())
+            sprite.enabled = false;
+        TrailRenderer trail = GetComponent<TrailRenderer>();
+        if (trail)
+        {
+            trail.Clear();
+            trail.enabled = false;
+        }
     }
 
     private bool TryHit(Enemy enemy)

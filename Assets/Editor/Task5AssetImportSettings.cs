@@ -24,11 +24,12 @@ public sealed class Task5AssetImportSettings : AssetPostprocessor
         AudioImporter importer = (AudioImporter)assetImporter;
         importer.forceToMono = true;
         importer.loadInBackground = false;
+        bool isMusic = assetPath.EndsWith("/bgm.ogg");
         importer.defaultSampleSettings = new AudioImporterSampleSettings
         {
-            loadType = AudioClipLoadType.DecompressOnLoad,
+            loadType = isMusic ? AudioClipLoadType.CompressedInMemory : AudioClipLoadType.DecompressOnLoad,
             compressionFormat = AudioCompressionFormat.Vorbis,
-            quality = 0.5f,
+            quality = isMusic ? 0.6f : 0.5f,
             sampleRateSetting = AudioSampleRateSetting.OptimizeSampleRate,
             preloadAudioData = true
         };
