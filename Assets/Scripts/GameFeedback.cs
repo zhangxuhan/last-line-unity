@@ -14,6 +14,9 @@ public sealed class GameFeedback : MonoBehaviour
     private Coroutine m_defense_flash;
     private Image m_edge_flash;
     private Text m_defense_text;
+    private Transform m_pool_root;
+    private ComponentPool<PooledSpriteEffect> m_hit_effect_pool;
+    private ComponentPool<PooledSpriteEffect> m_death_effect_pool;
     private AudioClip m_shoot, m_hit, m_enemy_death, m_breach, m_level_up, m_upgrade_select, m_game_over, m_bgm;
     private static Sprite s_white_sprite;
     private static Font s_runtime_font;
@@ -55,6 +58,7 @@ public sealed class GameFeedback : MonoBehaviour
             root.transform.SetParent(transform, false);
             m_effect_root = root.transform;
         }
+        EnsureEffectPools();
         if (!m_edge_flash && uiRoot)
         {
             GameObject edge = new GameObject("BreachFlash", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -80,12 +84,12 @@ public sealed class GameFeedback : MonoBehaviour
     public void PlayHit(Vector3 position)
     {
         Play(m_hit, 0.20f);
-        SpawnBurst(position, new Color(1f, 0.82f, 0.28f), 4, 0.10f, 0.13f);
+        SpawnBurst(position, new Color(1f, 0.82f, 0.28f), 4, 0.10f, 0.13f, m_hit_effect_pool);
     }
     public void PlayEnemyDeath(Vector3 position)
     {
         Play(m_enemy_death, 0.35f);
-        SpawnBurst(position, new Color(0.45f, 1f, 0.38f), 7, 0.22f, 0.20f);
+        SpawnBurst(position, new Color(0.45f, 1f, 0.38f), 7, 0.22f, 0.20f, m_death_effect_pool);
         Shake(0.07f, 0.045f);
     }
     public void PlayBreach(Vector3 position)
@@ -139,6 +143,8 @@ public sealed class GameFeedback : MonoBehaviour
         if (m_camera) m_camera.transform.localPosition = m_camera_home;
         if (m_edge_flash) m_edge_flash.color = Color.clear;
         if (m_defense_text) m_defense_text.color = Color.white;
+        m_hit_effect_pool?.ReleaseAllActive();
+        m_death_effect_pool?.ReleaseAllActive();
         if (m_effect_root)
             for (int index = m_effect_root.childCount - 1; index >= 0; index--)
                 Destroy(m_effect_root.GetChild(index).gameObject);
@@ -205,21 +211,31 @@ public sealed class GameFeedback : MonoBehaviour
         }
         if (flash) Destroy(flash);
     }
-    private void SpawnBurst(Vector3 position, Color color, int count, float duration, float radius)
+    private void SpawnBurst(Vector3 position, Color color, int count, float duration, float radius,
+        ComponentPool<PooledSpriteEffect> pool = null)
     {
         for (int index = 0; index < count; index++)
         {
             float angle = (360f / count) * index + Random.Range(-12f, 12f);
             Vector3 direction = Quaternion.Euler(0f, 0f, angle) * Vector3.up;
-            StartCoroutine(BurstPieceRoutine(position, direction, color, duration, radius));
+            StartCoroutine(BurstPieceRoutine(position, direction, color, duration, radius, pool));
         }
     }
-    private IEnumerator BurstPieceRoutine(Vector3 position, Vector3 direction, Color color, float duration, float radius)
+    private IEnumerator BurstPieceRoutine(Vector3 position, Vector3 direction, Color color, float duration, float radius,
+        ComponentPool<PooledSpriteEffect> pool)
     {
-        GameObject piece = CreateSpriteObject("FeedbackParticle", position, color, 4);
+        PooledSpriteEffect pooledEffect = pool?.Get();
+        GameObject piece = pooledEffect
+            ? pooledEffect.gameObject
+            : CreateSpriteObject("FeedbackParticle", position, color, 4);
+        piece.name = pool == m_death_effect_pool ? "DeathEffect" : pool == m_hit_effect_pool ? "HitEffect" : "FeedbackParticle";
+        piece.transform.position = position;
         piece.transform.localScale = new Vector3(0.055f, 0.13f, 1f);
         piece.transform.up = direction;
         SpriteRenderer renderer = piece.GetComponent<SpriteRenderer>();
+        renderer.sprite = GetWhiteSprite();
+        renderer.color = color;
+        renderer.sortingOrder = 4;
         float elapsed = 0f;
         while (elapsed < duration && piece)
         {
@@ -231,7 +247,8 @@ public sealed class GameFeedback : MonoBehaviour
             renderer.color = faded;
             yield return null;
         }
-        if (piece) Destroy(piece);
+        if (pooledEffect) pool.Release(pooledEffect);
+        else if (piece) Destroy(piece);
     }
 
     private IEnumerator DamageNumberRoutine(Vector3 position, float damage, bool critical)
@@ -319,18 +336,47 @@ public sealed class GameFeedback : MonoBehaviour
     }
     private GameObject CreateSpriteObject(string objectName, Vector3 position, Color color, int order)
     {
-        if (!s_white_sprite)
-            s_white_sprite = Sprite.Create(Texture2D.whiteTexture,
-                new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height),
-                new Vector2(0.5f, 0.5f), 4f);
         GameObject result = new GameObject(objectName, typeof(SpriteRenderer));
         result.transform.SetParent(m_effect_root, false);
         result.transform.position = position;
         SpriteRenderer renderer = result.GetComponent<SpriteRenderer>();
-        renderer.sprite = s_white_sprite;
+        renderer.sprite = GetWhiteSprite();
         renderer.color = color;
         renderer.sortingOrder = order;
         return result;
+    }
+
+    private void EnsureEffectPools()
+    {
+        if (!m_pool_root)
+        {
+            GameObject root = new GameObject("Task6EffectPools");
+            root.transform.SetParent(transform, false);
+            m_pool_root = root.transform;
+        }
+        if (m_hit_effect_pool == null)
+            m_hit_effect_pool = new ComponentPool<PooledSpriteEffect>(
+                () => CreatePooledEffect("HitEffect"), m_pool_root, 20);
+        if (m_death_effect_pool == null)
+            m_death_effect_pool = new ComponentPool<PooledSpriteEffect>(
+                () => CreatePooledEffect("DeathEffect"), m_pool_root, 16);
+    }
+
+    private PooledSpriteEffect CreatePooledEffect(string objectName)
+    {
+        GameObject effect = new GameObject(objectName, typeof(SpriteRenderer), typeof(PooledSpriteEffect));
+        effect.transform.SetParent(m_pool_root, false);
+        effect.GetComponent<SpriteRenderer>().sprite = GetWhiteSprite();
+        return effect.GetComponent<PooledSpriteEffect>();
+    }
+
+    private static Sprite GetWhiteSprite()
+    {
+        if (!s_white_sprite)
+            s_white_sprite = Sprite.Create(Texture2D.whiteTexture,
+                new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height),
+                new Vector2(0.5f, 0.5f), 4f);
+        return s_white_sprite;
     }
     private void BuildArena(Transform stageRoot, float defenseLineY)
     {

@@ -36,12 +36,14 @@ public class Player : MonoBehaviour
     private Coroutine m_burst_coroutine;
     private bool m_auto_fire;
     private float m_next_lightning_time;
+    private ComponentPool<PlayerBullet> m_bullet_pool;
 
     public WeaponRuntimeState RuntimeWeapon => m_runtime_weapon;
 
     public void InitializeForStage()
     {
         SetupVisual();
+        InitializeBulletPool();
         m_runtime_weapon = new WeaponRuntimeState(m_weapon.damage, m_weapon.shotInterval,
             m_weapon.bulletSpeed, m_weapon.projectileCount, m_weapon.penetration, m_weapon.spreadAngleStep);
         ResumeRunning();
@@ -173,13 +175,30 @@ public class Player : MonoBehaviour
         {
             float angleOffset = (index - (count - 1) / 2f) * m_runtime_weapon.SpreadAngleStep;
             Vector3 direction = Quaternion.AngleAxis(angleOffset, Vector3.forward) * m_aim_direction;
-            PlayerBullet bullet = Instantiate(m_prefab_player_bullet, transform.parent);
+            PlayerBullet bullet = m_bullet_pool.Get();
             bullet.transform.position = muzzlePosition;
             bool critical = UnityEngine.Random.value < m_runtime_weapon.CriticalChance;
             float damage = critical ? m_runtime_weapon.Damage * m_runtime_weapon.CriticalMultiplier : m_runtime_weapon.Damage;
             bullet.Initialize(direction, damage, m_runtime_weapon.ProjectileSpeed,
                 m_runtime_weapon.PenetrationCount, critical);
         }
+    }
+
+    private void InitializeBulletPool()
+    {
+        if (m_bullet_pool != null || !m_prefab_player_bullet) return;
+        Transform storageRoot = transform.parent;
+        m_bullet_pool = new ComponentPool<PlayerBullet>(() =>
+        {
+            PlayerBullet bullet = Instantiate(m_prefab_player_bullet, storageRoot);
+            bullet.ConfigurePool(ReleaseBullet);
+            return bullet;
+        }, storageRoot, 24);
+    }
+
+    private void ReleaseBullet(PlayerBullet bullet)
+    {
+        m_bullet_pool?.Release(bullet);
     }
 
     private void UpdateLightning()
@@ -207,7 +226,11 @@ public class Player : MonoBehaviour
         m_muzzle.localPosition = new Vector3(m_muzzle_offset / 1.55f + 0.07f, -0.15f, 0f);
     }
 
-    private void OnDisable() => StopRunning();
+    private void OnDisable()
+    {
+        StopRunning();
+        m_bullet_pool?.ReleaseAllActive();
+    }
 
     private void OnValidate()
     {

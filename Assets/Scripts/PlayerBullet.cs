@@ -1,8 +1,9 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 [DefaultExecutionOrder(100)]
-public class PlayerBullet : MonoBehaviour
+public class PlayerBullet : MonoBehaviour, IPoolable
 {
     [Header("Lifetime")]
     [SerializeField, Min(0.1f)] private float m_max_lifetime = 3f;
@@ -18,9 +19,18 @@ public class PlayerBullet : MonoBehaviour
     private Camera m_camera;
     private bool m_initialized;
     private bool m_is_critical;
+    private Action<PlayerBullet> m_release_to_pool;
+    private Collider[] m_colliders;
+    private SpriteRenderer[] m_sprite_renderers;
+    private TrailRenderer m_trail;
     private static int s_last_physics_sync_frame = -1;
     private static Sprite s_bullet_sprite;
     private static Material s_trail_material;
+
+    public void ConfigurePool(Action<PlayerBullet> releaseToPool)
+    {
+        m_release_to_pool = releaseToPool;
+    }
 
     public void Initialize(Vector3 direction, float damage, float speed, int penetration, bool isCritical = false)
     {
@@ -42,8 +52,7 @@ public class PlayerBullet : MonoBehaviour
         if (!StageLoop.Instance || StageLoop.Instance.State == StageLoop.GameState.Title
             || StageLoop.Instance.State == StageLoop.GameState.GameOver)
         {
-            StopRunning();
-            Destroy(gameObject);
+            Despawn();
             return;
         }
         if (StageLoop.Instance.State == StageLoop.GameState.LevelUp) return;
@@ -71,7 +80,7 @@ public class PlayerBullet : MonoBehaviour
 
         transform.position = start + m_direction * distance;
         if (ProcessOverlaps(transform.position)) return;
-        if (Time.time - m_spawn_time >= m_max_lifetime || IsOutsideCamera()) Destroy(gameObject);
+        if (Time.time - m_spawn_time >= m_max_lifetime || IsOutsideCamera()) Despawn();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -84,16 +93,53 @@ public class PlayerBullet : MonoBehaviour
     public void StopRunning()
     {
         m_initialized = false;
-        foreach (Collider colliderComponent in GetComponentsInChildren<Collider>())
-            colliderComponent.enabled = false;
-        foreach (SpriteRenderer sprite in GetComponentsInChildren<SpriteRenderer>())
-            sprite.enabled = false;
-        TrailRenderer trail = GetComponent<TrailRenderer>();
-        if (trail)
+        CacheComponents();
+        foreach (Collider colliderComponent in m_colliders) colliderComponent.enabled = false;
+        foreach (SpriteRenderer sprite in m_sprite_renderers) sprite.enabled = false;
+        if (m_trail)
         {
-            trail.Clear();
-            trail.enabled = false;
+            m_trail.Clear();
+            m_trail.enabled = false;
         }
+    }
+
+    public void OnSpawned()
+    {
+        m_direction = Vector3.up;
+        m_speed = 0f;
+        m_damage = 0f;
+        m_remaining_penetration = 0;
+        m_spawn_time = 0f;
+        m_camera = null;
+        m_initialized = false;
+        m_is_critical = false;
+        m_hit_enemy_ids.Clear();
+        transform.localRotation = Quaternion.identity;
+        transform.localScale = Vector3.one;
+        CacheComponents();
+        foreach (Collider colliderComponent in m_colliders) colliderComponent.enabled = true;
+        foreach (SpriteRenderer sprite in m_sprite_renderers) sprite.enabled = true;
+        if (m_trail)
+        {
+            m_trail.Clear();
+            m_trail.enabled = true;
+        }
+    }
+
+    public void OnDespawned()
+    {
+        StopRunning();
+        m_direction = Vector3.up;
+        m_speed = 0f;
+        m_damage = 0f;
+        m_remaining_penetration = 0;
+        m_spawn_time = 0f;
+        m_camera = null;
+        m_is_critical = false;
+        m_hit_enemy_ids.Clear();
+        transform.localPosition = Vector3.zero;
+        transform.localRotation = Quaternion.identity;
+        transform.localScale = Vector3.one;
     }
 
     private bool TryHit(Enemy enemy)
@@ -102,8 +148,7 @@ public class PlayerBullet : MonoBehaviour
         enemy.TakeDamage(m_damage, m_is_critical);
         if (m_remaining_penetration <= 0)
         {
-            StopRunning();
-            Destroy(gameObject);
+            Despawn();
             return true;
         }
         m_remaining_penetration--;
@@ -166,6 +211,29 @@ public class PlayerBullet : MonoBehaviour
         trail.endColor = new Color(1f, 0.45f, 0.08f, 0f);
         trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         trail.receiveShadows = false;
+        CacheComponents(true);
+        foreach (Collider colliderComponent in m_colliders) colliderComponent.enabled = true;
+        foreach (SpriteRenderer spriteRenderer in m_sprite_renderers) spriteRenderer.enabled = true;
+        trail.Clear();
+        trail.enabled = true;
+    }
+
+    private void CacheComponents(bool refresh = false)
+    {
+        if (refresh || m_colliders == null) m_colliders = GetComponentsInChildren<Collider>(true);
+        if (refresh || m_sprite_renderers == null) m_sprite_renderers = GetComponentsInChildren<SpriteRenderer>(true);
+        if (refresh || !m_trail) m_trail = GetComponent<TrailRenderer>();
+    }
+
+    private void Despawn()
+    {
+        if (!gameObject.activeSelf) return;
+        if (m_release_to_pool != null) m_release_to_pool(this);
+        else
+        {
+            StopRunning();
+            Destroy(gameObject);
+        }
     }
 
     private void OnValidate()
