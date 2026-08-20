@@ -86,16 +86,24 @@ public class TitleLoop : MonoBehaviour
         panelRect.offsetMax = Vector2.zero;
         Image panelImage = m_leaderboard_panel.GetComponent<Image>();
         panelImage.color = new Color(0.025f, 0.07f, 0.11f, 0.98f);
+        Outline panelOutline = m_leaderboard_panel.AddComponent<Outline>();
+        panelOutline.effectColor = new Color(0.18f, 0.82f, 0.95f, 0.9f);
+        panelOutline.effectDistance = new Vector2(3f, -3f);
 
-        Text header = CreateLabel(template, panelRect, "LOCAL TOP 3", 34, new Color(0.25f, 0.90f, 1f));
-        header.rectTransform.anchorMin = new Vector2(0.05f, 0.80f);
+        Text header = CreateLabel(template, panelRect, "LOCAL TOP 3", 36, new Color(0.30f, 0.94f, 1f));
+        header.rectTransform.anchorMin = new Vector2(0.05f, 0.84f);
         header.rectTransform.anchorMax = new Vector2(0.95f, 0.98f);
 
-        m_leaderboard_text = CreateLabel(template, panelRect, string.Empty, 25, Color.white);
-        m_leaderboard_text.rectTransform.anchorMin = new Vector2(0.08f, 0.23f);
-        m_leaderboard_text.rectTransform.anchorMax = new Vector2(0.92f, 0.78f);
-        m_leaderboard_text.alignment = TextAnchor.MiddleCenter;
-        m_leaderboard_text.lineSpacing = 1.35f;
+        Text columns = CreateLabel(template, panelRect, "RANKING   /   SCORE   /   TIME   /   LEVEL", 17,
+            new Color(0.52f, 0.78f, 0.86f));
+        columns.rectTransform.anchorMin = new Vector2(0.08f, 0.77f);
+        columns.rectTransform.anchorMax = new Vector2(0.92f, 0.85f);
+
+        m_leaderboard_text = CreateLabel(template, panelRect, string.Empty, 25, new Color(0.94f, 0.98f, 1f));
+        m_leaderboard_text.rectTransform.anchorMin = new Vector2(0.09f, 0.22f);
+        m_leaderboard_text.rectTransform.anchorMax = new Vector2(0.91f, 0.76f);
+        m_leaderboard_text.alignment = TextAnchor.MiddleLeft;
+        m_leaderboard_text.lineSpacing = 1.15f;
 
         GameObject closeObject = new GameObject("Close", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         RectTransform closeRect = closeObject.GetComponent<RectTransform>();
@@ -201,15 +209,16 @@ public static class LocalLeaderboard
     public static string FormatTopThree()
     {
         List<Entry> entries = Load();
-        if (entries.Count == 0) return "NO RECORDS YET\n\nFinish a run to register a score.";
+        if (entries.Count == 0) return "NO RECORDS YET\n\nFinish a run to register your first score.";
         var lines = new List<string>(entries.Count);
         for (int index = 0; index < entries.Count; index++)
         {
             Entry entry = entries[index];
             int seconds = Mathf.FloorToInt(entry.Time);
-            lines.Add($"{index + 1}.  {entry.Score:00000}   {seconds / 60:00}:{seconds % 60:00}   LV {entry.Level}");
+            string medal = index == 0 ? "#1" : index == 1 ? "#2" : "#3";
+            lines.Add($"{medal}   SCORE  {entry.Score:00000}\n      TIME  {seconds / 60:00}:{seconds % 60:00}     LEVEL  {entry.Level}");
         }
-        return string.Join("\n\n", lines);
+        return string.Join("\n", lines);
     }
 
     private static List<Entry> Load()

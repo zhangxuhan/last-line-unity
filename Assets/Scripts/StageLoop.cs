@@ -587,12 +587,20 @@ public class StageLoop : MonoBehaviour
             new Vector2(-10f, -10f), new Vector2(1f, 1f), TextAnchor.UpperRight);
         m_level_text = CreateText("Level", new Vector2(1f, 0f), new Vector2(1f, 0f),
             new Vector2(-10f, 10f), new Vector2(1f, 0f), TextAnchor.LowerRight);
+        m_stage_score_text.rectTransform.anchorMin = new Vector2(0.5f, 1f);
+        m_stage_score_text.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+        m_stage_score_text.rectTransform.pivot = new Vector2(0.5f, 1f);
+        m_stage_score_text.rectTransform.anchoredPosition = new Vector2(0f, -10f);
+        m_stage_score_text.rectTransform.sizeDelta = new Vector2(220f, 40f);
+        m_stage_score_text.alignment = TextAnchor.UpperCenter;
         m_defense_text.rectTransform.sizeDelta = new Vector2(270f, 40f);
         m_time_text.rectTransform.sizeDelta = new Vector2(230f, 40f);
         m_level_text.rectTransform.sizeDelta = new Vector2(180f, 40f);
         CreateAutoFireToggle();
         m_experience_text = CreateText("Experience", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-            new Vector2(0f, 42f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
+            new Vector2(0f, 44f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
+        m_experience_text.rectTransform.sizeDelta = new Vector2(340f, 34f);
+        m_experience_text.fontSize = 18;
         CreateExperienceBar();
         CreateUpgradeUi();
         m_game_over_text = CreateText("GameOver", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -633,10 +641,24 @@ public class StageLoop : MonoBehaviour
         rect.anchorMin = new Vector2(0f, 0f);
         rect.anchorMax = new Vector2(0f, 0f);
         rect.pivot = new Vector2(0f, 0f);
-        rect.anchoredPosition = new Vector2(14f, 76f);
-        rect.sizeDelta = new Vector2(170f, 42f);
+        rect.anchoredPosition = new Vector2(12f, 62f);
+        rect.sizeDelta = new Vector2(184f, 50f);
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.035f, 0.09f, 0.14f, 0.92f);
+        background.color = new Color(0.08f, 0.58f, 0.72f, 1f);
+        Outline rootOutline = root.AddComponent<Outline>();
+        rootOutline.effectColor = new Color(0.3f, 0.95f, 1f, 0.95f);
+        rootOutline.effectDistance = new Vector2(2f, -2f);
+
+        GameObject innerObject = new GameObject("Panel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform innerRect = innerObject.GetComponent<RectTransform>();
+        innerRect.SetParent(rect, false);
+        innerRect.anchorMin = Vector2.zero;
+        innerRect.anchorMax = Vector2.one;
+        innerRect.offsetMin = new Vector2(3f, 3f);
+        innerRect.offsetMax = new Vector2(-3f, -3f);
+        Image innerImage = innerObject.GetComponent<Image>();
+        innerImage.color = new Color(0.025f, 0.09f, 0.14f, 0.98f);
+        innerImage.raycastTarget = false;
 
         GameObject check = new GameObject("Checkmark", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         RectTransform checkRect = check.GetComponent<RectTransform>();
@@ -645,17 +667,17 @@ public class StageLoop : MonoBehaviour
         checkRect.anchorMax = new Vector2(0f, 0.5f);
         checkRect.pivot = new Vector2(0f, 0.5f);
         checkRect.anchoredPosition = new Vector2(12f, 0f);
-        checkRect.sizeDelta = new Vector2(25f, 25f);
+        checkRect.sizeDelta = new Vector2(30f, 30f);
         Image checkBox = check.GetComponent<Image>();
-        checkBox.color = new Color(0.03f, 0.10f, 0.15f, 1f);
+        checkBox.color = new Color(0.12f, 0.72f, 0.86f, 1f);
 
         GameObject tickObject = new GameObject("Tick", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         RectTransform tickRect = tickObject.GetComponent<RectTransform>();
         tickRect.SetParent(checkRect, false);
         tickRect.anchorMin = Vector2.zero;
         tickRect.anchorMax = Vector2.one;
-        tickRect.offsetMin = new Vector2(2f, 2f);
-        tickRect.offsetMax = new Vector2(-2f, -2f);
+        tickRect.offsetMin = new Vector2(3f, 3f);
+        tickRect.offsetMax = new Vector2(-3f, -3f);
         Image tickImage = tickObject.GetComponent<Image>();
         tickImage.sprite = GetTickSprite();
         tickImage.color = new Color(0.18f, 0.92f, 1f);
@@ -665,12 +687,12 @@ public class StageLoop : MonoBehaviour
         label.name = "Label";
         label.rectTransform.anchorMin = Vector2.zero;
         label.rectTransform.anchorMax = Vector2.one;
-        label.rectTransform.offsetMin = new Vector2(48f, 0f);
+        label.rectTransform.offsetMin = new Vector2(51f, 0f);
         label.rectTransform.offsetMax = new Vector2(-8f, 0f);
         label.alignment = TextAnchor.MiddleLeft;
         label.text = "AUTO FIRE";
         label.raycastTarget = false;
-        StyleText(label, 19, Color.white);
+        StyleText(label, 19, new Color(0.78f, 0.97f, 1f));
 
         m_auto_fire_toggle = root.GetComponent<Toggle>();
         m_auto_fire_toggle.targetGraphic = background;
