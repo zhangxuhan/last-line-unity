@@ -112,6 +112,11 @@ public class StageLoop : MonoBehaviour
     private Text m_upgrade_header_text;
     private GameObject m_skills_panel;
     private Text m_skills_content_text;
+    private Text m_skills_empty_text;
+    private readonly GameObject[] m_skill_cells = new GameObject[8];
+    private readonly Text[] m_skill_cell_names = new Text[8];
+    private readonly Text[] m_skill_cell_values = new Text[8];
+    private readonly Image[] m_skill_cell_icons = new Image[8];
     private readonly Button[] m_upgrade_buttons = new Button[3];
     private readonly Text[] m_upgrade_button_texts = new Text[3];
     private readonly Image[] m_upgrade_button_icons = new Image[3];
@@ -872,18 +877,20 @@ public class StageLoop : MonoBehaviour
 
         m_skills_content_text = Instantiate(m_stage_score_text, panelRect);
         m_skills_content_text.name = "SkillsContent";
-        m_skills_content_text.rectTransform.anchorMin = new Vector2(0.08f, 0.14f);
+        m_skills_content_text.rectTransform.anchorMin = new Vector2(0.08f, 0.72f);
         m_skills_content_text.rectTransform.anchorMax = new Vector2(0.92f, 0.86f);
         m_skills_content_text.rectTransform.offsetMin = Vector2.zero;
         m_skills_content_text.rectTransform.offsetMax = Vector2.zero;
-        m_skills_content_text.alignment = TextAnchor.UpperLeft;
-        m_skills_content_text.fontSize = 19;
+        m_skills_content_text.alignment = TextAnchor.MiddleCenter;
+        m_skills_content_text.fontSize = 18;
         m_skills_content_text.fontStyle = FontStyle.Normal;
         m_skills_content_text.supportRichText = true;
-        m_skills_content_text.lineSpacing = 1.08f;
+        m_skills_content_text.lineSpacing = 1f;
         m_skills_content_text.raycastTarget = false;
         m_skills_content_text.horizontalOverflow = HorizontalWrapMode.Wrap;
         m_skills_content_text.verticalOverflow = VerticalWrapMode.Truncate;
+
+        CreateSkillGrid(panelRect);
 
         GameObject closeObject = new GameObject("CloseSkills",
             typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
@@ -904,6 +911,88 @@ public class StageLoop : MonoBehaviour
         closeLabel.rectTransform.offsetMin = Vector2.zero;
         closeLabel.rectTransform.offsetMax = Vector2.zero;
         m_skills_panel.SetActive(false);
+    }
+
+    private void CreateSkillGrid(RectTransform panelRect)
+    {
+        GameObject gridObject = new GameObject("SkillGrid", typeof(RectTransform), typeof(GridLayoutGroup));
+        RectTransform gridRect = gridObject.GetComponent<RectTransform>();
+        gridRect.SetParent(panelRect, false);
+        gridRect.anchorMin = new Vector2(0.08f, 0.16f);
+        gridRect.anchorMax = new Vector2(0.92f, 0.70f);
+        gridRect.offsetMin = Vector2.zero;
+        gridRect.offsetMax = Vector2.zero;
+        GridLayoutGroup grid = gridObject.GetComponent<GridLayoutGroup>();
+        grid.cellSize = new Vector2(292f, 98f);
+        grid.spacing = new Vector2(16f, 14f);
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+        grid.childAlignment = TextAnchor.UpperCenter;
+
+        for (int index = 0; index < m_skill_cells.Length; index++)
+        {
+            WeaponUpgradeType type = (WeaponUpgradeType)index;
+            GameObject cell = new GameObject($"SkillCell_{type}",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Outline));
+            cell.transform.SetParent(gridRect, false);
+            Image background = cell.GetComponent<Image>();
+            background.color = new Color(0.045f, 0.13f, 0.19f, 0.98f);
+            background.raycastTarget = false;
+            Outline outline = cell.GetComponent<Outline>();
+            outline.effectColor = new Color(0.16f, 0.63f, 0.76f, 0.85f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            GameObject iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            RectTransform iconRect = iconObject.GetComponent<RectTransform>();
+            iconRect.SetParent(cell.transform, false);
+            iconRect.anchorMin = new Vector2(0f, 0.5f);
+            iconRect.anchorMax = new Vector2(0f, 0.5f);
+            iconRect.pivot = new Vector2(0f, 0.5f);
+            iconRect.anchoredPosition = new Vector2(12f, 0f);
+            iconRect.sizeDelta = new Vector2(66f, 66f);
+            Image icon = iconObject.GetComponent<Image>();
+            icon.sprite = GetUpgradeIcon(type);
+            icon.material = GetUpgradeIconMaterial();
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+
+            Text name = Instantiate(m_stage_score_text, cell.transform);
+            name.name = "Name";
+            name.rectTransform.anchorMin = new Vector2(0f, 0.5f);
+            name.rectTransform.anchorMax = new Vector2(1f, 1f);
+            name.rectTransform.offsetMin = new Vector2(88f, -2f);
+            name.rectTransform.offsetMax = new Vector2(-8f, -8f);
+            name.alignment = TextAnchor.MiddleLeft;
+            name.horizontalOverflow = HorizontalWrapMode.Wrap;
+            name.verticalOverflow = VerticalWrapMode.Truncate;
+            name.raycastTarget = false;
+            StyleText(name, 15, new Color(1f, 0.86f, 0.45f));
+
+            Text value = Instantiate(m_stage_score_text, cell.transform);
+            value.name = "Value";
+            value.rectTransform.anchorMin = new Vector2(0f, 0f);
+            value.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+            value.rectTransform.offsetMin = new Vector2(88f, 7f);
+            value.rectTransform.offsetMax = new Vector2(-8f, 2f);
+            value.alignment = TextAnchor.MiddleLeft;
+            value.horizontalOverflow = HorizontalWrapMode.Wrap;
+            value.verticalOverflow = VerticalWrapMode.Truncate;
+            value.raycastTarget = false;
+            StyleText(value, 13, new Color(0.78f, 0.91f, 0.95f));
+
+            m_skill_cells[index] = cell;
+            m_skill_cell_icons[index] = icon;
+            m_skill_cell_names[index] = name;
+            m_skill_cell_values[index] = value;
+        }
+
+        m_skills_empty_text = Instantiate(m_stage_score_text, gridRect);
+        m_skills_empty_text.name = "NoSkills";
+        m_skills_empty_text.rectTransform.sizeDelta = new Vector2(600f, 90f);
+        m_skills_empty_text.alignment = TextAnchor.MiddleCenter;
+        m_skills_empty_text.text = "NO UPGRADES ACQUIRED YET";
+        m_skills_empty_text.raycastTarget = false;
+        StyleText(m_skills_empty_text, 18, new Color(0.55f, 0.70f, 0.76f));
     }
 
     private void OpenSkillsPanel()
@@ -928,22 +1017,24 @@ public class StageLoop : MonoBehaviour
     {
         if (!m_skills_content_text || !m_player || m_player.RuntimeWeapon == null) return;
         WeaponRuntimeState weapon = m_player.RuntimeWeapon;
-        var builder = new StringBuilder(768);
-        builder.Append("<size=18><color=#7EDDEC><b>WEAPON STATUS</b></color></size>\n");
-        builder.Append($"Damage {weapon.Damage:0.0}    Interval {weapon.FireInterval:0.00}s    Crit {weapon.CriticalChance * 100f:0}%\n");
-        builder.Append($"Projectiles {weapon.ProjectileCount}    Penetration {weapon.PenetrationCount}    Burst {weapon.BurstCount}\n\n");
-        builder.Append("<size=20><color=#FFFFFF><b>ACQUIRED SKILLS</b></color></size>\n");
+        m_skills_content_text.text =
+            $"<color=#7EDDEC><b>WEAPON STATUS</b></color>\n" +
+            $"DMG {weapon.Damage:0.0}   RATE {weapon.FireInterval:0.00}s   CRIT {weapon.CriticalChance * 100f:0}%   " +
+            $"SHOT {weapon.ProjectileCount}   PIERCE {weapon.PenetrationCount}   BURST {weapon.BurstCount}";
         bool hasSkills = false;
         foreach (WeaponUpgradeType type in Enum.GetValues(typeof(WeaponUpgradeType)))
         {
+            int index = (int)type;
             int level = weapon.GetUpgradeLevel(type);
-            if (level <= 0) continue;
+            bool acquired = level > 0;
+            m_skill_cells[index].SetActive(acquired);
+            if (!acquired) continue;
             hasSkills = true;
-            builder.Append($"<color=#FFE08A><b>LV {level}  {GetSkillDisplayName(type)}</b></color>\n");
-            builder.Append($"<size=16><color=#E8F5FA>{GetSkillCurrentValue(type, weapon)}</color></size>\n");
+            m_skill_cell_names[index].text = $"LV {level}  {GetSkillDisplayName(type)}";
+            m_skill_cell_values[index].text = GetSkillCurrentValue(type, weapon);
+            m_skill_cell_icons[index].sprite = GetUpgradeIcon(type);
         }
-        if (!hasSkills) builder.Append("<color=#B8CBD3>No upgrades acquired yet.</color>");
-        m_skills_content_text.text = builder.ToString();
+        if (m_skills_empty_text) m_skills_empty_text.gameObject.SetActive(!hasSkills);
     }
 
     private static string GetSkillDisplayName(WeaponUpgradeType type)
