@@ -17,6 +17,8 @@ public sealed class GameFeedback : MonoBehaviour
     private AudioClip m_shoot, m_hit, m_enemy_death, m_breach, m_level_up, m_upgrade_select, m_game_over, m_bgm;
     private static Sprite s_white_sprite;
     private static Font s_runtime_font;
+    private static Sprite[] s_tree_sprites;
+    private static Material s_environment_material;
 
     public void Initialize(Camera gameCamera, Transform stageRoot, Transform uiRoot, Text defenseText, float defenseLineY)
     {
@@ -349,9 +351,52 @@ public sealed class GameFeedback : MonoBehaviour
             line.transform.SetParent(stageRoot, true);
             line.transform.localScale = new Vector3(width, 0.018f, 1f);
         }
+        BuildSideTrees(stageRoot, center.x, bottom, width, height);
         GameObject defense = CreateSpriteObject("DefenseLine", new Vector3(center.x, defenseLineY, 0.7f),
             new Color(0.90f, 0.16f, 0.12f, 0.85f), -5);
         defense.transform.SetParent(stageRoot, true);
         defense.transform.localScale = new Vector3(width, 0.045f, 1f);
+    }
+
+    private void BuildSideTrees(Transform stageRoot, float centerX, float bottom, float width, float height)
+    {
+        Texture2D atlas = Resources.Load<Texture2D>("Task5/Environment/side_trees");
+        if (!atlas) return;
+        if (s_tree_sprites == null)
+        {
+            s_tree_sprites = new Sprite[4];
+            float cellWidth = atlas.width / 4f;
+            for (int index = 0; index < s_tree_sprites.Length; index++)
+                s_tree_sprites[index] = Sprite.Create(atlas,
+                    new Rect(index * cellWidth, 0f, cellWidth, atlas.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+        if (!s_environment_material)
+        {
+            Shader shader = Resources.Load<Shader>("Task5/UI/IconChromaKey");
+            if (shader) s_environment_material = new Material(shader) { name = "RuntimeEnvironmentMaterial" };
+        }
+
+        const int treesPerSide = 7;
+        float edgeInset = 0.30f;
+        for (int side = -1; side <= 1; side += 2)
+        {
+            for (int index = 0; index < treesPerSide; index++)
+            {
+                float y = bottom + height * (index + 0.55f) / treesPerSide;
+                float stagger = (index % 2 == 0 ? 0.08f : -0.10f) * side;
+                float x = centerX + side * (width * 0.5f - edgeInset) + stagger;
+                GameObject tree = new GameObject($"SideTree_{side}_{index}", typeof(SpriteRenderer));
+                tree.transform.SetParent(stageRoot, false);
+                tree.transform.position = new Vector3(x, y, 0.55f);
+                float scale = 0.56f + (index % 3) * 0.08f;
+                tree.transform.localScale = Vector3.one * scale;
+                tree.transform.localRotation = Quaternion.Euler(0f, 0f, side < 0 ? -7f : 7f);
+                SpriteRenderer renderer = tree.GetComponent<SpriteRenderer>();
+                renderer.sprite = s_tree_sprites[index % s_tree_sprites.Length];
+                renderer.color = new Color(0.72f, 0.78f, 0.78f, 0.82f);
+                renderer.sortingOrder = -12;
+                if (s_environment_material) renderer.sharedMaterial = s_environment_material;
+            }
+        }
     }
 }

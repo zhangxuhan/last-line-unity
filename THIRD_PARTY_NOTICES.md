@@ -56,3 +56,11 @@ Copies of the license text supplied with each downloaded archive are stored in `
 - Used for: the eight weapon upgrade card icons
 - Generated: 2026-08-20
 - Note: this is AI-generated presentation artwork and is not represented as hand-drawn artwork.
+
+## Project-generated side-tree atlas
+
+- File: `Assets/Resources/Task5/Environment/side_trees.png`
+- Generated with: OpenAI image generation tool
+- Used for: low-contrast decorative trees along both sides of the battlefield
+- Generated: 2026-08-20
+- Note: this is AI-generated presentation artwork and is not represented as hand-drawn artwork.

@@ -8,7 +8,7 @@ using UnityEngine.UI;
 [RequireComponent(typeof(Camera))]
 public sealed class PortraitCameraViewport : MonoBehaviour
 {
-    private const float TargetAspect = 9f / 16f;
+    private const float TargetAspect = 3f / 4f;
     private Camera m_camera;
     private int m_last_width;
     private int m_last_height;
@@ -407,12 +407,12 @@ public class StageLoop : MonoBehaviour
             GameObject bomb = new GameObject($"DefenseBomb{lane + 1}");
             bomb.transform.SetParent(m_stage_transform, false);
             bomb.transform.position = new Vector3(x, m_bomb_trigger_y, -0.05f);
-            CreateBombPiece(bomb.transform, "Body", Vector3.zero, new Vector3(0.28f, 0.28f, 1f),
+            CreateBombPiece(bomb.transform, "Body", Vector3.zero, new Vector3(0.18f, 0.18f, 1f),
                 Quaternion.Euler(0f, 0f, 45f), new Color(0.08f, 0.16f, 0.22f), 3);
-            CreateBombPiece(bomb.transform, "Core", Vector3.zero, new Vector3(0.13f, 0.13f, 1f),
-                Quaternion.identity, new Color(0.18f, 0.92f, 1f), 4);
-            CreateBombPiece(bomb.transform, "Fuse", new Vector3(0.12f, 0.16f, 0f), new Vector3(0.06f, 0.18f, 1f),
-                Quaternion.Euler(0f, 0f, -35f), new Color(1f, 0.54f, 0.10f), 4);
+            CreateBombPiece(bomb.transform, "Core", Vector3.zero, new Vector3(0.075f, 0.075f, 1f),
+                Quaternion.identity, new Color(0.16f, 0.68f, 0.76f), 4);
+            CreateBombPiece(bomb.transform, "Fuse", new Vector3(0.075f, 0.10f, 0f), new Vector3(0.038f, 0.11f, 1f),
+                Quaternion.Euler(0f, 0f, -35f), new Color(0.86f, 0.42f, 0.08f), 4);
             m_defense_bomb_visuals[lane] = bomb;
         }
     }
@@ -572,8 +572,10 @@ public class StageLoop : MonoBehaviour
         CreateUpgradeUi();
         m_game_over_text = CreateText("GameOver", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
             Vector2.zero, new Vector2(0.5f, 0.5f), TextAnchor.MiddleCenter);
-        m_game_over_text.rectTransform.sizeDelta = new Vector2(620f, 360f);
-        m_game_over_text.fontSize = 32;
+        m_game_over_text.rectTransform.anchorMin = new Vector2(0.05f, 0.5f);
+        m_game_over_text.rectTransform.anchorMax = new Vector2(0.95f, 0.5f);
+        m_game_over_text.rectTransform.sizeDelta = new Vector2(0f, 360f);
+        m_game_over_text.fontSize = 28;
         m_game_over_text.color = Color.white;
         StyleText(m_stage_score_text, 26, new Color(0.82f, 0.95f, 1f));
     }
@@ -768,11 +770,11 @@ public class StageLoop : MonoBehaviour
         m_upgrade_header_text = CreateText("UpgradeHeader", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
             new Vector2(0f, -38f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter);
         m_upgrade_header_text.transform.SetParent(panelTransform, false);
-        m_upgrade_header_text.rectTransform.anchorMin = new Vector2(0.5f, 1f);
-        m_upgrade_header_text.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+        m_upgrade_header_text.rectTransform.anchorMin = new Vector2(0.05f, 1f);
+        m_upgrade_header_text.rectTransform.anchorMax = new Vector2(0.95f, 1f);
         m_upgrade_header_text.rectTransform.anchoredPosition = new Vector2(0f, -38f);
-        m_upgrade_header_text.rectTransform.sizeDelta = new Vector2(700f, 115f);
-        m_upgrade_header_text.fontSize = 30;
+        m_upgrade_header_text.rectTransform.sizeDelta = new Vector2(0f, 115f);
+        m_upgrade_header_text.fontSize = 27;
         m_upgrade_header_text.color = Color.white;
 
         for (int index = 0; index < m_upgrade_buttons.Length; index++)
@@ -782,11 +784,11 @@ public class StageLoop : MonoBehaviour
                 typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             RectTransform buttonTransform = buttonObject.GetComponent<RectTransform>();
             buttonTransform.SetParent(panelTransform, false);
-            buttonTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            buttonTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            buttonTransform.anchorMin = new Vector2(0.06f, 0.5f);
+            buttonTransform.anchorMax = new Vector2(0.94f, 0.5f);
             buttonTransform.pivot = new Vector2(0.5f, 0.5f);
             buttonTransform.anchoredPosition = new Vector2(0f, 115f - index * 145f);
-            buttonTransform.sizeDelta = new Vector2(700f, 120f);
+            buttonTransform.sizeDelta = new Vector2(0f, 120f);
 
             Image buttonImage = buttonObject.GetComponent<Image>();
             buttonImage.color = new Color(0.12f, 0.24f, 0.38f, 1f);
@@ -808,7 +810,7 @@ public class StageLoop : MonoBehaviour
             optionText.fontSize = 23;
             optionText.color = Color.white;
             optionText.raycastTarget = false;
-            StyleText(optionText, 21, Color.white);
+            StyleText(optionText, 19, Color.white);
             m_upgrade_button_texts[index] = optionText;
 
             GameObject iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
