@@ -404,6 +404,12 @@ public class StageLoop : MonoBehaviour
         if (!m_stage_score_text) return;
 
         m_stage_ui_root = m_stage_score_text.transform.parent.gameObject;
+        Canvas stageCanvas = m_stage_score_text.GetComponentInParent<Canvas>();
+        if (stageCanvas)
+        {
+            stageCanvas.overrideSorting = true;
+            stageCanvas.sortingOrder = 100;
+        }
         m_defense_text = CreateText("Defense", new Vector2(0f, 1f), new Vector2(0f, 1f),
             new Vector2(10f, -10f), new Vector2(0f, 1f), TextAnchor.UpperLeft);
         m_time_text = CreateText("Time", new Vector2(1f, 1f), new Vector2(1f, 1f),

@@ -123,7 +123,7 @@ public class Enemy : MonoBehaviour
         m_walk_phase += Time.deltaTime * frequency;
         float step = Mathf.Sin(m_walk_phase);
         m_visual.localPosition = m_visual_home + Vector3.up * (Mathf.Abs(step) * m_walk_bob);
-        m_visual.localRotation = Quaternion.Euler(0f, 0f, 180f + step * m_walk_tilt);
+        m_visual.localRotation = Quaternion.Euler(0f, 0f, 270f + step * m_walk_tilt);
     }
 
     private IEnumerator HitFeedbackRoutine()
