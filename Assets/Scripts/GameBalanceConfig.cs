@@ -25,6 +25,13 @@ public sealed class GameBalanceConfig : ScriptableObject
         public int maximumActiveEnemies = 24;
         public float restSeconds = 3f;
         public int debugSeed = 1337;
+        [Min(1)] public int exponentialStartWave = 5;
+        [Min(1f)] public float budgetMultiplierPerWave = 1.65f;
+        [Min(1f)] public float hpMultiplierPerWave = 1.60f;
+        [Min(1f)] public float speedMultiplierPerWave = 1.10f;
+        [Range(0.1f, 1f)] public float spawnIntervalMultiplierPerWave = 0.78f;
+        [Min(0)] public int activeEnemyGrowthPerWave = 7;
+        [Min(1)] public int absoluteMaximumActiveEnemies = 60;
     }
 
     [Serializable]

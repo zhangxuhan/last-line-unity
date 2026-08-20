@@ -27,6 +27,13 @@ MonoBehaviour:
     maximumActiveEnemies: 24
     restSeconds: 3
     debugSeed: 1337
+    exponentialStartWave: 5
+    budgetMultiplierPerWave: 1.65
+    hpMultiplierPerWave: 1.6
+    speedMultiplierPerWave: 1.1
+    spawnIntervalMultiplierPerWave: 0.78
+    activeEnemyGrowthPerWave: 7
+    absoluteMaximumActiveEnemies: 60
   baseWeapon:
     damage: 10
     shotInterval: 0.35

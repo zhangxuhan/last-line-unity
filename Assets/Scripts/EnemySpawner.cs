@@ -48,13 +48,15 @@ public class EnemySpawner : MonoBehaviour
 
             wave++;
             GameBalanceConfig.WaveTable waves = GameBalanceConfig.Current.waves;
-            int budget = waves.initialBudget + (wave - 1) * waves.budgetGrowthPerWave;
+            int budget = CalculateWaveBudget(wave, waves);
+            int activeEnemyLimit = CalculateActiveEnemyLimit(wave, waves);
+            float spawnInterval = CalculateSpawnInterval(wave, waves);
             int remainingBudget = budget;
             m_stage_loop.SetWaveStatus(wave, budget, "CLEAR THE WAVE");
 
             while (remainingBudget > 0 && IsSessionActive())
             {
-                if (!m_stage_loop.IsPlaying || Enemy.CountActive(m_stage_loop) >= waves.maximumActiveEnemies)
+                if (!m_stage_loop.IsPlaying || Enemy.CountActive(m_stage_loop) >= activeEnemyLimit)
                 {
                     yield return null;
                     continue;
@@ -65,7 +67,7 @@ public class EnemySpawner : MonoBehaviour
                     : RollAffordableArchetype(wave, remainingBudget);
                 SpawnEnemy(archetype, wave);
                 remainingBudget -= GetBudgetCost(archetype);
-                yield return WaitForPlayingSeconds(m_stage_loop.CurrentSpawnInterval);
+                yield return WaitForPlayingSeconds(spawnInterval);
             }
 
             while (IsSessionActive() && Enemy.CountActive(m_stage_loop) > 0) yield return null;
@@ -81,7 +83,7 @@ public class EnemySpawner : MonoBehaviour
                     if (shownSecond != lastShownSecond)
                     {
                         lastShownSecond = shownSecond;
-                        int nextBudget = waves.initialBudget + wave * waves.budgetGrowthPerWave;
+                        int nextBudget = CalculateWaveBudget(wave + 1, waves);
                         m_stage_loop.SetWaveStatus(wave, budget,
                             $"NEXT WAVE {wave + 1}  •  {shownSecond}s  •  BUDGET {nextBudget}");
                     }
@@ -91,6 +93,29 @@ public class EnemySpawner : MonoBehaviour
             }
         }
         m_spawn_coroutine = null;
+    }
+
+    private int GetExponentialStep(int wave, GameBalanceConfig.WaveTable waves)
+        => Mathf.Max(0, wave - Mathf.Max(1, waves.exponentialStartWave));
+
+    private int CalculateWaveBudget(int wave, GameBalanceConfig.WaveTable waves)
+    {
+        double linearBudget = waves.initialBudget + Math.Max(0, wave - 1) * (double)waves.budgetGrowthPerWave;
+        double multiplier = Math.Pow(Math.Max(1d, waves.budgetMultiplierPerWave), GetExponentialStep(wave, waves));
+        return (int)Math.Min(100000d, Math.Ceiling(linearBudget * multiplier));
+    }
+
+    private int CalculateActiveEnemyLimit(int wave, GameBalanceConfig.WaveTable waves)
+    {
+        int increased = waves.maximumActiveEnemies + GetExponentialStep(wave, waves) * waves.activeEnemyGrowthPerWave;
+        return Mathf.Clamp(increased, 1, Mathf.Max(1, waves.absoluteMaximumActiveEnemies));
+    }
+
+    private float CalculateSpawnInterval(int wave, GameBalanceConfig.WaveTable waves)
+    {
+        float multiplier = Mathf.Pow(Mathf.Clamp(waves.spawnIntervalMultiplierPerWave, 0.1f, 1f),
+            GetExponentialStep(wave, waves));
+        return Mathf.Max(0.04f, m_stage_loop.CurrentSpawnInterval * multiplier);
     }
 
     private IEnumerator WaitForPlayingSeconds(float duration)
@@ -115,6 +140,11 @@ public class EnemySpawner : MonoBehaviour
         Enemy enemy = Instantiate(m_prefab_enemy, m_spawn_parent);
         enemy.transform.position = GetSpawnPosition();
         m_stage_loop.GetCurrentEnemyStats(out int maxHp, out float moveSpeed);
+        GameBalanceConfig.WaveTable waves = GameBalanceConfig.Current.waves;
+        int exponentialStep = GetExponentialStep(wave, waves);
+        double waveHpMultiplier = Math.Pow(Math.Max(1d, waves.hpMultiplierPerWave), exponentialStep);
+        maxHp = (int)Math.Min(int.MaxValue, Math.Ceiling(maxHp * waveHpMultiplier));
+        moveSpeed *= Mathf.Pow(Mathf.Max(1f, waves.speedMultiplierPerWave), exponentialStep);
         float movementPhase = (float)(m_random.NextDouble() * Math.PI * 2d);
         enemy.Initialize(m_stage_loop, maxHp, moveSpeed, m_stage_loop.DefenseLineY, archetype, movementPhase, wave);
     }
