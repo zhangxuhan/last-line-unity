@@ -6,6 +6,12 @@ using UnityEngine.UI;
 
 public class TitleLoop : MonoBehaviour
 {
+    private const string DisplayModeKey = "QGames.DisplayMode.V1";
+    private static readonly Vector2Int[] WindowSizes =
+    {
+        new Vector2Int(600, 800), new Vector2Int(720, 960), new Vector2Int(768, 1024)
+    };
+
     [SerializeField] private StageLoop m_stage_loop;
     [Header("Layout")]
     [SerializeField] private Transform m_ui_title;
@@ -13,12 +19,18 @@ public class TitleLoop : MonoBehaviour
     private GameObject m_leaderboard_panel;
     private Text m_leaderboard_text;
     private bool m_leaderboard_open;
+    private GameObject m_display_panel;
+    private Text m_display_status_text;
+    private bool m_display_open;
+    private int m_selected_display_mode;
     private bool m_start_requested;
 
     private void Start()
     {
+        ApplySavedDisplayMode();
         CreateTitlePresentation();
         CreateLeaderboardUi();
+        CreateDisplaySettingsUi();
         StartTitleLoop();
     }
 
@@ -33,13 +45,19 @@ public class TitleLoop : MonoBehaviour
     {
         m_ui_title.gameObject.SetActive(true);
         CloseLeaderboard();
+        CloseDisplaySettings();
         while (true)
         {
-            if (m_leaderboard_open && Input.GetKeyDown(KeyCode.Escape))
+            if (m_display_open && Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseDisplaySettings();
+            }
+            else if (m_leaderboard_open && Input.GetKeyDown(KeyCode.Escape))
             {
                 CloseLeaderboard();
             }
-            else if (!m_leaderboard_open && (m_start_requested || Input.GetKeyDown(KeyCode.Space)))
+            else if (!m_leaderboard_open && !m_display_open
+                && (m_start_requested || Input.GetKeyDown(KeyCode.Space)))
             {
                 m_start_requested = false;
                 m_ui_title.gameObject.SetActive(false);
@@ -126,7 +144,7 @@ public class TitleLoop : MonoBehaviour
             instructions.transform.SetAsLastSibling();
         }
 
-        CreateMenuButton(template, "StartButton", new Vector2(0f, -164f), new Vector2(320f, 64f),
+        CreateMenuButton(template, m_ui_title, "StartButton", new Vector2(0f, -164f), new Vector2(320f, 64f),
             "START GAME", new Color(0.06f, 0.58f, 0.72f, 1f), RequestStart);
 
         Text shortcut = CreateLabel(template, m_ui_title, "or press SPACE", 17, new Color(0.55f, 0.72f, 0.78f));
@@ -137,12 +155,12 @@ public class TitleLoop : MonoBehaviour
         shortcut.rectTransform.sizeDelta = new Vector2(260f, 28f);
     }
 
-    private Button CreateMenuButton(Text template, string name, Vector2 position, Vector2 size,
+    private Button CreateMenuButton(Text template, Transform parent, string name, Vector2 position, Vector2 size,
         string label, Color color, UnityEngine.Events.UnityAction action)
     {
         GameObject buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
         RectTransform rect = buttonObject.GetComponent<RectTransform>();
-        rect.SetParent(m_ui_title, false);
+        rect.SetParent(parent, false);
         rect.anchorMin = new Vector2(0.5f, 0.5f);
         rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = position;
@@ -165,7 +183,7 @@ public class TitleLoop : MonoBehaviour
 
     private void RequestStart()
     {
-        if (!m_leaderboard_open) m_start_requested = true;
+        if (!m_leaderboard_open && !m_display_open) m_start_requested = true;
     }
 
     private void CreateLeaderboardUi()
@@ -185,7 +203,7 @@ public class TitleLoop : MonoBehaviour
         buttonRect.SetParent(m_ui_title, false);
         buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
         buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
-        buttonRect.anchoredPosition = new Vector2(0f, -276f);
+        buttonRect.anchoredPosition = new Vector2(-155f, -276f);
         buttonRect.sizeDelta = new Vector2(280f, 58f);
         Image buttonImage = buttonObject.GetComponent<Image>();
         buttonImage.color = new Color(0.06f, 0.20f, 0.30f, 0.96f);
@@ -264,6 +282,7 @@ public class TitleLoop : MonoBehaviour
 
     private void OpenLeaderboard()
     {
+        CloseDisplaySettings();
         m_leaderboard_open = true;
         if (m_leaderboard_text) m_leaderboard_text.text = LocalLeaderboard.FormatTopThree();
         if (m_leaderboard_panel)
@@ -277,6 +296,113 @@ public class TitleLoop : MonoBehaviour
     {
         m_leaderboard_open = false;
         if (m_leaderboard_panel) m_leaderboard_panel.SetActive(false);
+    }
+
+    private void CreateDisplaySettingsUi()
+    {
+        if (!m_ui_title || m_display_panel) return;
+        Text template = m_ui_title.GetComponentInChildren<Text>(true);
+        if (!template) return;
+
+        CreateMenuButton(template, m_ui_title, "DisplayButton", new Vector2(155f, -276f), new Vector2(280f, 58f),
+            "DISPLAY", new Color(0.06f, 0.20f, 0.30f, 0.96f), OpenDisplaySettings);
+
+        m_display_panel = new GameObject("DisplayPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform panelRect = m_display_panel.GetComponent<RectTransform>();
+        panelRect.SetParent(m_ui_title, false);
+        panelRect.anchorMin = new Vector2(0.10f, 0.14f);
+        panelRect.anchorMax = new Vector2(0.90f, 0.86f);
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+        Image panelImage = m_display_panel.GetComponent<Image>();
+        panelImage.color = new Color(0.025f, 0.07f, 0.11f, 0.99f);
+        Outline panelOutline = m_display_panel.AddComponent<Outline>();
+        panelOutline.effectColor = new Color(0.18f, 0.82f, 0.95f, 0.9f);
+        panelOutline.effectDistance = new Vector2(3f, -3f);
+
+        Text header = CreateLabel(template, panelRect, "DISPLAY SETTINGS", 34, new Color(0.30f, 0.94f, 1f));
+        header.rectTransform.anchorMin = new Vector2(0.05f, 0.84f);
+        header.rectTransform.anchorMax = new Vector2(0.95f, 0.98f);
+
+        for (int index = 0; index < WindowSizes.Length; index++)
+        {
+            int modeIndex = index;
+            Vector2Int size = WindowSizes[index];
+            CreateMenuButton(template, panelRect, $"Window{size.x}x{size.y}",
+                new Vector2(0f, 155f - index * 74f), new Vector2(430f, 56f),
+                $"WINDOWED   {size.x} × {size.y}", new Color(0.08f, 0.28f, 0.38f, 1f),
+                () => SetDisplayMode(modeIndex));
+        }
+
+        CreateMenuButton(template, panelRect, "Fullscreen", new Vector2(0f, -67f), new Vector2(430f, 56f),
+            "FULLSCREEN   NATIVE", new Color(0.20f, 0.34f, 0.46f, 1f), () => SetDisplayMode(3));
+
+        m_display_status_text = CreateLabel(template, panelRect, string.Empty, 19, new Color(0.62f, 0.88f, 0.94f));
+        m_display_status_text.rectTransform.anchorMin = new Vector2(0.08f, 0.28f);
+        m_display_status_text.rectTransform.anchorMax = new Vector2(0.92f, 0.38f);
+
+        CreateMenuButton(template, panelRect, "Close", new Vector2(0f, -247f), new Vector2(210f, 50f),
+            "CLOSE", new Color(0.10f, 0.28f, 0.38f, 1f), CloseDisplaySettings);
+        RefreshDisplayStatus();
+        m_display_panel.SetActive(false);
+    }
+
+    private void ApplySavedDisplayMode()
+    {
+        m_selected_display_mode = Mathf.Clamp(PlayerPrefs.GetInt(DisplayModeKey, 0), 0, 3);
+        ApplyDisplayMode(m_selected_display_mode, false);
+    }
+
+    private void SetDisplayMode(int modeIndex)
+    {
+        m_selected_display_mode = Mathf.Clamp(modeIndex, 0, 3);
+        ApplyDisplayMode(m_selected_display_mode, true);
+    }
+
+    private void ApplyDisplayMode(int modeIndex, bool save)
+    {
+        if (modeIndex >= WindowSizes.Length)
+        {
+            Resolution native = Screen.currentResolution;
+            Screen.SetResolution(native.width, native.height, FullScreenMode.FullScreenWindow);
+        }
+        else
+        {
+            Vector2Int size = WindowSizes[modeIndex];
+            Screen.SetResolution(size.x, size.y, FullScreenMode.Windowed);
+        }
+        if (save)
+        {
+            PlayerPrefs.SetInt(DisplayModeKey, modeIndex);
+            PlayerPrefs.Save();
+        }
+        RefreshDisplayStatus();
+    }
+
+    private void RefreshDisplayStatus()
+    {
+        if (!m_display_status_text) return;
+        m_display_status_text.text = m_selected_display_mode >= WindowSizes.Length
+            ? "CURRENT: FULLSCREEN / NATIVE RESOLUTION"
+            : $"CURRENT: {WindowSizes[m_selected_display_mode].x} × {WindowSizes[m_selected_display_mode].y} / WINDOWED";
+    }
+
+    private void OpenDisplaySettings()
+    {
+        CloseLeaderboard();
+        m_display_open = true;
+        RefreshDisplayStatus();
+        if (m_display_panel)
+        {
+            m_display_panel.SetActive(true);
+            m_display_panel.transform.SetAsLastSibling();
+        }
+    }
+
+    private void CloseDisplaySettings()
+    {
+        m_display_open = false;
+        if (m_display_panel) m_display_panel.SetActive(false);
     }
 
     private void OnDisable()
