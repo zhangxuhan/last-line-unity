@@ -51,7 +51,8 @@ public class StageLoop : MonoBehaviour
     private Text m_level_text;
     private Text m_experience_text;
     private Text m_game_over_text;
-    private Image m_experience_fill;
+    private RectTransform m_experience_fill_rect;
+    private Text m_experience_percent_text;
     private GameObject m_upgrade_panel;
     private Text m_upgrade_header_text;
     private readonly Button[] m_upgrade_buttons = new Button[3];
@@ -414,23 +415,35 @@ public class StageLoop : MonoBehaviour
         backgroundTransform.anchorMin = new Vector2(0.5f, 0f);
         backgroundTransform.anchorMax = new Vector2(0.5f, 0f);
         backgroundTransform.pivot = new Vector2(0.5f, 0f);
-        backgroundTransform.anchoredPosition = new Vector2(0f, 36f);
-        backgroundTransform.sizeDelta = new Vector2(360f, 12f);
-        backgroundObject.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
+        backgroundTransform.anchoredPosition = new Vector2(0f, 14f);
+        backgroundTransform.sizeDelta = new Vector2(360f, 22f);
+        Image backgroundImage = backgroundObject.GetComponent<Image>();
+        backgroundImage.type = Image.Type.Simple;
+        backgroundImage.color = new Color(0f, 0f, 0f, 0.75f);
 
         GameObject fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        RectTransform fillTransform = fillObject.GetComponent<RectTransform>();
-        fillTransform.SetParent(backgroundTransform, false);
-        fillTransform.anchorMin = Vector2.zero;
-        fillTransform.anchorMax = Vector2.one;
-        fillTransform.offsetMin = new Vector2(2f, 2f);
-        fillTransform.offsetMax = new Vector2(-2f, -2f);
-        m_experience_fill = fillObject.GetComponent<Image>();
-        m_experience_fill.color = new Color(0.2f, 0.85f, 1f, 1f);
-        m_experience_fill.type = Image.Type.Filled;
-        m_experience_fill.fillMethod = Image.FillMethod.Horizontal;
-        m_experience_fill.fillOrigin = 0;
-        m_experience_fill.fillAmount = 0f;
+        m_experience_fill_rect = fillObject.GetComponent<RectTransform>();
+        m_experience_fill_rect.SetParent(backgroundTransform, false);
+        m_experience_fill_rect.anchorMin = new Vector2(0f, 0.5f);
+        m_experience_fill_rect.anchorMax = new Vector2(0f, 0.5f);
+        m_experience_fill_rect.pivot = new Vector2(0f, 0.5f);
+        m_experience_fill_rect.anchoredPosition = new Vector2(2f, 0f);
+        m_experience_fill_rect.sizeDelta = new Vector2(0f, 18f);
+        Image experienceFill = fillObject.GetComponent<Image>();
+        experienceFill.type = Image.Type.Simple;
+        experienceFill.color = new Color(0.2f, 0.85f, 1f, 1f);
+
+        m_experience_percent_text = Instantiate(m_stage_score_text, backgroundTransform);
+        m_experience_percent_text.name = "Percentage";
+        m_experience_percent_text.rectTransform.anchorMin = Vector2.zero;
+        m_experience_percent_text.rectTransform.anchorMax = Vector2.one;
+        m_experience_percent_text.rectTransform.offsetMin = Vector2.zero;
+        m_experience_percent_text.rectTransform.offsetMax = Vector2.zero;
+        m_experience_percent_text.alignment = TextAnchor.MiddleCenter;
+        m_experience_percent_text.fontSize = 14;
+        m_experience_percent_text.color = Color.white;
+        m_experience_percent_text.raycastTarget = false;
+        m_experience_percent_text.text = "0%";
     }
 
     private void CreateUpgradeUi()
@@ -526,7 +539,8 @@ public class StageLoop : MonoBehaviour
         if (m_level_text) m_level_text.text = $"Level {m_progression.Level}";
         if (m_experience_text)
             m_experience_text.text = $"EXP {m_progression.CurrentExperience} / {m_progression.RequiredExperience} ({percentage}%)";
-        if (m_experience_fill) m_experience_fill.fillAmount = progress;
+        if (m_experience_fill_rect) m_experience_fill_rect.sizeDelta = new Vector2(356f * progress, 18f);
+        if (m_experience_percent_text) m_experience_percent_text.text = $"{percentage}%";
     }
 
     private void RefreshGameOverText()
