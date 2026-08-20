@@ -204,7 +204,7 @@ public class Player : MonoBehaviour
         m_muzzle = muzzleObject.transform;
         m_muzzle.SetParent(m_visual, false);
         // The Kenney survivor gun barrel sits right of and slightly below the sprite pivot.
-        m_muzzle.localPosition = new Vector3(m_muzzle_offset / 1.55f + 0.07f, -0.035f, 0f);
+        m_muzzle.localPosition = new Vector3(m_muzzle_offset / 1.55f + 0.07f, -0.15f, 0f);
     }
 
     private void OnDisable() => StopRunning();
