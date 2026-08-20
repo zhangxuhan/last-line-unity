@@ -148,4 +148,5 @@ MonoBehaviour:
     bulletSpeed: 10
     projectileCount: 1
     penetration: 0
+    spreadAngleStep: 8
   m_muzzle_offset: 0.55

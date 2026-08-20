@@ -12,7 +12,7 @@ public class Enemy : MonoBehaviour
     [SerializeField] private float m_rotation_speed = 200f;
 
     private StageLoop m_stage_loop;
-    private int m_current_hp;
+    private float m_current_hp;
     private float m_defense_line_y;
     private bool m_is_settled;
     private bool m_initialized;
@@ -46,7 +46,7 @@ public class Enemy : MonoBehaviour
         if (transform.position.y <= m_defense_line_y) BreachDefense();
     }
 
-    public void TakeDamage(int damage)
+    public void TakeDamage(float damage)
     {
         if (!m_initialized || m_is_settled || !m_stage_loop || !m_stage_loop.IsPlaying || damage <= 0) return;
 

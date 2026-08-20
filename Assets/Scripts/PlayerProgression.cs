@@ -61,6 +61,11 @@ public sealed class PlayerProgression
         return true;
     }
 
+    public void DiscardPendingUpgrades()
+    {
+        PendingUpgradeCount = 0;
+    }
+
     public static int CalculateNextRequirement(int newLevel, int currentRequirement)
     {
         switch (newLevel)

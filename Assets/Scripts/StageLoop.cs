@@ -1,6 +1,7 @@
 using System.Collections;
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class StageLoop : MonoBehaviour
@@ -9,6 +10,7 @@ public class StageLoop : MonoBehaviour
     {
         Title,
         Playing,
+        LevelUp,
         GameOver
     }
 
@@ -50,7 +52,17 @@ public class StageLoop : MonoBehaviour
     private Text m_experience_text;
     private Text m_game_over_text;
     private Image m_experience_fill;
+    private GameObject m_upgrade_panel;
+    private Text m_upgrade_header_text;
+    private readonly Button[] m_upgrade_buttons = new Button[3];
+    private readonly Text[] m_upgrade_button_texts = new Text[3];
+    private readonly WeaponUpgradeType[] m_current_upgrade_types = new WeaponUpgradeType[3];
     private PlayerProgression m_progression;
+    private Player m_player;
+    private System.Random m_upgrade_random;
+    private int m_current_upgrade_count;
+    private int m_accept_upgrade_input_frame;
+    private bool m_upgrade_selection_locked;
     private int m_game_score;
     private int m_breach_count;
     private float m_survival_time;
@@ -80,7 +92,9 @@ public class StageLoop : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        Time.timeScale = 1f;
         m_progression = new PlayerProgression();
+        m_upgrade_random = new System.Random();
         if (!m_game_camera) m_game_camera = Camera.main;
         CreateRuntimeUi();
         SetState(GameState.Title);
@@ -88,6 +102,7 @@ public class StageLoop : MonoBehaviour
 
     public void StartStageLoop()
     {
+        Time.timeScale = 1f;
         StopStageCoroutine();
         SetupStage();
         m_stage_coroutine = StartCoroutine(StageCoroutine());
@@ -120,6 +135,21 @@ public class StageLoop : MonoBehaviour
                     yield break;
                 }
             }
+            else if (State == GameState.LevelUp)
+            {
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    ReturnToTitle();
+                    yield break;
+                }
+
+                if (Time.frameCount >= m_accept_upgrade_input_frame)
+                {
+                    if (Input.GetKeyDown(KeyCode.Alpha1)) SelectUpgrade(0);
+                    else if (Input.GetKeyDown(KeyCode.Alpha2)) SelectUpgrade(1);
+                    else if (Input.GetKeyDown(KeyCode.Alpha3)) SelectUpgrade(2);
+                }
+            }
 
             yield return null;
         }
@@ -130,6 +160,7 @@ public class StageLoop : MonoBehaviour
     private void SetupStage()
     {
         CleanupStageObjects();
+        Time.timeScale = 1f;
         if (!m_game_camera) m_game_camera = Camera.main;
 
         m_game_score = 0;
@@ -140,9 +171,9 @@ public class StageLoop : MonoBehaviour
         RefreshHud();
         RefreshProgressionUi();
 
-        Player player = Instantiate(m_prefab_player, m_stage_transform);
-        player.transform.position = new Vector3(0f, GetCameraBottom() + m_player_bottom_offset, 0f);
-        player.StartRunning();
+        m_player = Instantiate(m_prefab_player, m_stage_transform);
+        m_player.transform.position = new Vector3(0f, GetCameraBottom() + m_player_bottom_offset, 0f);
+        m_player.InitializeForStage();
 
         EnemySpawner spawner = Instantiate(m_prefab_enemy_spawner, m_stage_transform);
         spawner.Initialize(this, m_game_camera, m_stage_transform);
@@ -169,11 +200,80 @@ public class StageLoop : MonoBehaviour
 
         for (int index = 1; index <= levelUpCount; index++)
             OnLevelUp?.Invoke(previousLevel + index);
+
+        if (levelUpCount > 0 && IsPlaying) EnterLevelUp();
     }
 
     public bool TryConsumePendingUpgrade()
     {
         return m_progression != null && m_progression.TryConsumePendingUpgrade();
+    }
+
+    private void EnterLevelUp()
+    {
+        if (!IsPlaying || PendingUpgradeCount <= 0 || !m_player || m_player.RuntimeWeapon == null) return;
+
+        SetState(GameState.LevelUp);
+        m_player.StopRunning();
+        Time.timeScale = 0f;
+        PrepareUpgradeChoices();
+    }
+
+    private void PrepareUpgradeChoices()
+    {
+        if (State != GameState.LevelUp || !m_player || m_player.RuntimeWeapon == null) return;
+
+        var candidates = WeaponUpgradeSystem.GetRandomCandidates(m_player.RuntimeWeapon, 3, m_upgrade_random);
+        m_current_upgrade_count = candidates.Count;
+        m_upgrade_selection_locked = false;
+        m_accept_upgrade_input_frame = Time.frameCount + 1;
+        if (m_upgrade_header_text) m_upgrade_header_text.text = $"LEVEL UP\nLevel {Level}\nChoose one upgrade";
+
+        for (int index = 0; index < m_upgrade_buttons.Length; index++)
+        {
+            bool visible = index < candidates.Count;
+            m_upgrade_buttons[index].gameObject.SetActive(visible);
+            if (!visible) continue;
+
+            WeaponUpgradeType type = candidates[index];
+            m_current_upgrade_types[index] = type;
+            WeaponUpgradeOption option = WeaponUpgradeSystem.BuildOption(type, m_player.RuntimeWeapon);
+            m_upgrade_button_texts[index].text = $"[{index + 1}] {option.Name}\n{option.Description}\n{option.ValueChange}";
+            m_upgrade_buttons[index].interactable = true;
+        }
+    }
+
+    private void SelectUpgrade(int index)
+    {
+        if (State != GameState.LevelUp || m_upgrade_selection_locked
+            || Time.frameCount < m_accept_upgrade_input_frame
+            || index < 0 || index >= m_current_upgrade_count || !m_upgrade_buttons[index].gameObject.activeSelf) return;
+
+        m_upgrade_selection_locked = true;
+        foreach (Button button in m_upgrade_buttons) button.interactable = false;
+
+        if (!m_player || !m_player.TryApplyUpgrade(m_current_upgrade_types[index]))
+        {
+            PrepareUpgradeChoices();
+            return;
+        }
+
+        if (!TryConsumePendingUpgrade())
+        {
+            ExitLevelUp();
+            return;
+        }
+
+        if (PendingUpgradeCount > 0) PrepareUpgradeChoices();
+        else ExitLevelUp();
+    }
+
+    private void ExitLevelUp()
+    {
+        if (State != GameState.LevelUp) return;
+        Time.timeScale = 1f;
+        SetState(GameState.Playing);
+        if (m_player) m_player.ResumeRunning();
     }
 
     public void RegisterBreach(Enemy enemy)
@@ -189,6 +289,8 @@ public class StageLoop : MonoBehaviour
     {
         if (!IsPlaying) return;
 
+        Time.timeScale = 1f;
+        m_progression.DiscardPendingUpgrades();
         SetState(GameState.GameOver);
         CleanupStageObjects();
         RefreshHud();
@@ -197,12 +299,14 @@ public class StageLoop : MonoBehaviour
 
     private void ReturnToTitle()
     {
+        Time.timeScale = 1f;
         CleanupStageObjects();
         SetState(GameState.Title);
         m_game_score = 0;
         m_breach_count = 0;
         m_survival_time = 0f;
         m_progression?.Reset();
+        m_player = null;
         m_stage_coroutine = null;
         m_title_loop.StartTitleLoop();
     }
@@ -212,6 +316,7 @@ public class StageLoop : MonoBehaviour
         State = state;
         if (m_stage_ui_root) m_stage_ui_root.SetActive(state != GameState.Title);
         if (m_game_over_text) m_game_over_text.gameObject.SetActive(state == GameState.GameOver);
+        if (m_upgrade_panel) m_upgrade_panel.SetActive(state == GameState.LevelUp);
     }
 
     private int GetDifficultyStage()
@@ -244,6 +349,7 @@ public class StageLoop : MonoBehaviour
 
         for (int index = m_stage_transform.childCount - 1; index >= 0; index--)
             Destroy(m_stage_transform.GetChild(index).gameObject);
+        m_player = null;
     }
 
     private void CreateRuntimeUi()
@@ -260,6 +366,7 @@ public class StageLoop : MonoBehaviour
         m_experience_text = CreateText("Experience", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
             new Vector2(0f, 42f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
         CreateExperienceBar();
+        CreateUpgradeUi();
         m_game_over_text = CreateText("GameOver", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
             Vector2.zero, new Vector2(0.5f, 0.5f), TextAnchor.MiddleCenter);
         m_game_over_text.rectTransform.sizeDelta = new Vector2(620f, 360f);
@@ -313,6 +420,77 @@ public class StageLoop : MonoBehaviour
         m_experience_fill.fillMethod = Image.FillMethod.Horizontal;
         m_experience_fill.fillOrigin = 0;
         m_experience_fill.fillAmount = 0f;
+    }
+
+    private void CreateUpgradeUi()
+    {
+        Canvas canvas = m_stage_score_text.GetComponentInParent<Canvas>();
+        if (canvas && !canvas.GetComponent<GraphicRaycaster>()) canvas.gameObject.AddComponent<GraphicRaycaster>();
+
+        if (!EventSystem.current)
+        {
+            GameObject eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            eventSystemObject.transform.SetParent(transform, false);
+        }
+
+        m_upgrade_panel = new GameObject("UpgradePanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform panelTransform = m_upgrade_panel.GetComponent<RectTransform>();
+        panelTransform.SetParent(m_stage_score_text.transform.parent, false);
+        panelTransform.anchorMin = Vector2.zero;
+        panelTransform.anchorMax = Vector2.one;
+        panelTransform.offsetMin = Vector2.zero;
+        panelTransform.offsetMax = Vector2.zero;
+        Image panelImage = m_upgrade_panel.GetComponent<Image>();
+        panelImage.color = new Color(0.03f, 0.05f, 0.09f, 0.94f);
+        panelImage.raycastTarget = true;
+
+        m_upgrade_header_text = CreateText("UpgradeHeader", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+            new Vector2(0f, -38f), new Vector2(0.5f, 1f), TextAnchor.UpperCenter);
+        m_upgrade_header_text.transform.SetParent(panelTransform, false);
+        m_upgrade_header_text.rectTransform.anchorMin = new Vector2(0.5f, 1f);
+        m_upgrade_header_text.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+        m_upgrade_header_text.rectTransform.anchoredPosition = new Vector2(0f, -38f);
+        m_upgrade_header_text.rectTransform.sizeDelta = new Vector2(700f, 115f);
+        m_upgrade_header_text.fontSize = 30;
+        m_upgrade_header_text.color = Color.white;
+
+        for (int index = 0; index < m_upgrade_buttons.Length; index++)
+        {
+            int buttonIndex = index;
+            GameObject buttonObject = new GameObject($"UpgradeOption{index + 1}",
+                typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            RectTransform buttonTransform = buttonObject.GetComponent<RectTransform>();
+            buttonTransform.SetParent(panelTransform, false);
+            buttonTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            buttonTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            buttonTransform.pivot = new Vector2(0.5f, 0.5f);
+            buttonTransform.anchoredPosition = new Vector2(0f, 115f - index * 145f);
+            buttonTransform.sizeDelta = new Vector2(700f, 120f);
+
+            Image buttonImage = buttonObject.GetComponent<Image>();
+            buttonImage.color = new Color(0.12f, 0.24f, 0.38f, 1f);
+            Button button = buttonObject.GetComponent<Button>();
+            ColorBlock colors = button.colors;
+            colors.highlightedColor = new Color(0.2f, 0.42f, 0.62f, 1f);
+            colors.pressedColor = new Color(0.08f, 0.18f, 0.28f, 1f);
+            button.colors = colors;
+            button.onClick.AddListener(() => SelectUpgrade(buttonIndex));
+            m_upgrade_buttons[index] = button;
+
+            Text optionText = Instantiate(m_stage_score_text, buttonTransform);
+            optionText.name = "Text";
+            optionText.rectTransform.anchorMin = Vector2.zero;
+            optionText.rectTransform.anchorMax = Vector2.one;
+            optionText.rectTransform.offsetMin = new Vector2(18f, 8f);
+            optionText.rectTransform.offsetMax = new Vector2(-18f, -8f);
+            optionText.alignment = TextAnchor.MiddleCenter;
+            optionText.fontSize = 23;
+            optionText.color = Color.white;
+            optionText.raycastTarget = false;
+            m_upgrade_button_texts[index] = optionText;
+        }
+
+        m_upgrade_panel.SetActive(false);
     }
 
     private void RefreshProgressionUi()
@@ -375,14 +553,19 @@ public class StageLoop : MonoBehaviour
 
     private void OnDisable()
     {
+        Time.timeScale = 1f;
         StopStageCoroutine();
         CleanupStageObjects();
         State = GameState.Title;
+        if (m_upgrade_panel) m_upgrade_panel.SetActive(false);
     }
 
     private void OnDestroy()
     {
+        Time.timeScale = 1f;
         OnLevelUp = null;
         if (Instance == this) Instance = null;
     }
+
+    private void OnApplicationQuit() => Time.timeScale = 1f;
 }

@@ -11,16 +11,16 @@ public class PlayerBullet : MonoBehaviour
     private readonly HashSet<int> m_hit_enemy_ids = new HashSet<int>();
     private Vector3 m_direction = Vector3.up;
     private float m_speed;
-    private int m_damage;
+    private float m_damage;
     private int m_remaining_penetration;
     private float m_spawn_time;
     private Camera m_camera;
     private bool m_initialized;
 
-    public void Initialize(Vector3 direction, int damage, float speed, int penetration)
+    public void Initialize(Vector3 direction, float damage, float speed, int penetration)
     {
         m_direction = direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.up;
-        m_damage = Mathf.Max(0, damage);
+        m_damage = Mathf.Max(0f, damage);
         m_speed = Mathf.Max(0f, speed);
         m_remaining_penetration = Mathf.Max(0, penetration);
         m_spawn_time = Time.time;
@@ -32,12 +32,14 @@ public class PlayerBullet : MonoBehaviour
     private void Update()
     {
         if (!m_initialized) return;
-        if (!StageLoop.Instance || !StageLoop.Instance.IsPlaying)
+        if (!StageLoop.Instance || StageLoop.Instance.State == StageLoop.GameState.Title
+            || StageLoop.Instance.State == StageLoop.GameState.GameOver)
         {
             StopRunning();
             Destroy(gameObject);
             return;
         }
+        if (StageLoop.Instance.State == StageLoop.GameState.LevelUp) return;
 
         float distance = m_speed * Time.deltaTime;
         Vector3 start = transform.position;
