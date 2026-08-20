@@ -60,7 +60,9 @@ public class EnemySpawner : MonoBehaviour
                     continue;
                 }
 
-                Enemy.Archetype archetype = RollAffordableArchetype(wave, remainingBudget);
+                Enemy.Archetype archetype = ShouldForceFirstGiant(wave, remainingBudget, budget)
+                    ? Enemy.Archetype.Giant
+                    : RollAffordableArchetype(wave, remainingBudget);
                 SpawnEnemy(archetype, wave);
                 remainingBudget -= GetBudgetCost(archetype);
                 yield return WaitForPlayingSeconds(m_stage_loop.CurrentSpawnInterval);
@@ -134,6 +136,12 @@ public class EnemySpawner : MonoBehaviour
             if (roll <= 0d) return row.archetype;
         }
         return Enemy.Archetype.Normal;
+    }
+
+    private static bool ShouldForceFirstGiant(int wave, int remainingBudget, int waveBudget)
+    {
+        GameBalanceConfig.EnemyRow giant = GameBalanceConfig.Current.GetEnemy(Enemy.Archetype.Giant);
+        return wave == giant.unlockWave && remainingBudget == waveBudget && remainingBudget >= giant.budgetCost;
     }
 
     private static float GetWaveWeight(GameBalanceConfig.EnemyRow row, int wave)

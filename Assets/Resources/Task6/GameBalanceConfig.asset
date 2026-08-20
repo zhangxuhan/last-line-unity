@@ -86,7 +86,7 @@ MonoBehaviour:
     hpMultiplier: 0.65
     speedMultiplier: 1.55
     rootScale: 0.78
-    visualScale: {x: 1.28, y: 1.72}
+    visualScale: {x: 1.48, y: 1.12}
     color: {r: 0.78, g: 1, b: 0.48, a: 1}
     scoreMultiplier: 1.5
     experienceMultiplier: 1
@@ -182,7 +182,7 @@ MonoBehaviour:
     hpMultiplierPerGrowthTier: 1
     rootScalePerGrowthTier: 0
   - archetype: 6
-    unlockWave: 6
+    unlockWave: 4
     budgetCost: 7
     baseWeight: 3
     weightPerWave: 0.8
