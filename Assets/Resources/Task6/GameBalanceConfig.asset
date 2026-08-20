@@ -72,6 +72,10 @@ MonoBehaviour:
     lateralAmplitude: 0
     lateralFrequency: 2.15
     shieldBlockHits: 0
+    growthTierWaveInterval: 0
+    maximumGrowthTiers: 0
+    hpMultiplierPerGrowthTier: 1
+    rootScalePerGrowthTier: 0
   - archetype: 2
     unlockWave: 2
     budgetCost: 1
@@ -89,6 +93,10 @@ MonoBehaviour:
     lateralAmplitude: 0
     lateralFrequency: 2.15
     shieldBlockHits: 0
+    growthTierWaveInterval: 0
+    maximumGrowthTiers: 0
+    hpMultiplierPerGrowthTier: 1
+    rootScalePerGrowthTier: 0
   - archetype: 4
     unlockWave: 2
     budgetCost: 2
@@ -99,13 +107,17 @@ MonoBehaviour:
     hpMultiplier: 0.9
     speedMultiplier: 1.05
     rootScale: 0.9
-    visualScale: {x: 1.36, y: 1.62}
+    visualScale: {x: 1.5, y: 1.18}
     color: {r: 0.28, g: 0.9, b: 1, a: 1}
     scoreMultiplier: 1.75
     experienceMultiplier: 2
     lateralAmplitude: 0.38
     lateralFrequency: 2.15
     shieldBlockHits: 0
+    growthTierWaveInterval: 0
+    maximumGrowthTiers: 0
+    hpMultiplierPerGrowthTier: 1
+    rootScalePerGrowthTier: 0
   - archetype: 1
     unlockWave: 3
     budgetCost: 2
@@ -123,6 +135,10 @@ MonoBehaviour:
     lateralAmplitude: 0
     lateralFrequency: 2.15
     shieldBlockHits: 0
+    growthTierWaveInterval: 0
+    maximumGrowthTiers: 0
+    hpMultiplierPerGrowthTier: 1
+    rootScalePerGrowthTier: 0
   - archetype: 3
     unlockWave: 5
     budgetCost: 4
@@ -140,6 +156,10 @@ MonoBehaviour:
     lateralAmplitude: 0
     lateralFrequency: 2.15
     shieldBlockHits: 0
+    growthTierWaveInterval: 0
+    maximumGrowthTiers: 0
+    hpMultiplierPerGrowthTier: 1
+    rootScalePerGrowthTier: 0
   - archetype: 5
     unlockWave: 3
     budgetCost: 3
@@ -156,7 +176,32 @@ MonoBehaviour:
     experienceMultiplier: 2
     lateralAmplitude: 0
     lateralFrequency: 2.15
-    shieldBlockHits: 3
+    shieldBlockHits: 5
+    growthTierWaveInterval: 0
+    maximumGrowthTiers: 0
+    hpMultiplierPerGrowthTier: 1
+    rootScalePerGrowthTier: 0
+  - archetype: 6
+    unlockWave: 6
+    budgetCost: 7
+    baseWeight: 3
+    weightPerWave: 0.8
+    minimumWeight: 0
+    maximumWeight: 12
+    hpMultiplier: 4.5
+    speedMultiplier: 0.52
+    rootScale: 1.8
+    visualScale: {x: 1.65, y: 1.65}
+    color: {r: 0.48, g: 0.18, b: 0.14, a: 1}
+    scoreMultiplier: 5
+    experienceMultiplier: 5
+    lateralAmplitude: 0
+    lateralFrequency: 2.15
+    shieldBlockHits: 0
+    growthTierWaveInterval: 3
+    maximumGrowthTiers: 5
+    hpMultiplierPerGrowthTier: 1.45
+    rootScalePerGrowthTier: 0.18
   rarities:
   - rarity: 0
     rollWeight: 35

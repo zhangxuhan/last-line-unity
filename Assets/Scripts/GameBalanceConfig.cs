@@ -83,6 +83,10 @@ public sealed class GameBalanceConfig : ScriptableObject
         public float lateralAmplitude;
         public float lateralFrequency = 2.15f;
         public int shieldBlockHits;
+        [Min(0)] public int growthTierWaveInterval;
+        [Min(0)] public int maximumGrowthTiers;
+        [Min(1f)] public float hpMultiplierPerGrowthTier = 1f;
+        [Min(0f)] public float rootScalePerGrowthTier;
     }
 
     [Serializable]
@@ -160,7 +164,7 @@ public sealed class GameBalanceConfig : ScriptableObject
             rootScale = 0.78f, visualScale = new Vector2(1.28f, 1.72f), color = new Color(0.78f, 1f, 0.48f), scoreMultiplier = 1.5f },
         new EnemyRow { archetype = Enemy.Archetype.Weaver, unlockWave = 2, budgetCost = 2, baseWeight = 14f,
             weightPerWave = 1f, maximumWeight = 22f, hpMultiplier = 0.90f, speedMultiplier = 1.05f,
-            rootScale = 0.90f, visualScale = new Vector2(1.36f, 1.62f), color = new Color(0.28f, 0.90f, 1f),
+            rootScale = 0.90f, visualScale = new Vector2(1.50f, 1.18f), color = new Color(0.28f, 0.90f, 1f),
             scoreMultiplier = 1.75f, experienceMultiplier = 2, lateralAmplitude = 0.38f },
         new EnemyRow { archetype = Enemy.Archetype.Brute, unlockWave = 3, budgetCost = 2, baseWeight = 13f,
             weightPerWave = 1f, maximumWeight = 22f, hpMultiplier = 2f, speedMultiplier = 0.68f,
@@ -173,7 +177,12 @@ public sealed class GameBalanceConfig : ScriptableObject
         new EnemyRow { archetype = Enemy.Archetype.Shield, unlockWave = 3, budgetCost = 3, baseWeight = 8f,
             weightPerWave = 1.2f, maximumWeight = 18f, hpMultiplier = 1.25f, speedMultiplier = 0.78f,
             rootScale = 1.12f, visualScale = new Vector2(1.58f, 1.58f), color = new Color(0.48f, 0.72f, 0.78f),
-            scoreMultiplier = 2.4f, experienceMultiplier = 2, shieldBlockHits = 3 }
+            scoreMultiplier = 2.4f, experienceMultiplier = 2, shieldBlockHits = 5 },
+        new EnemyRow { archetype = Enemy.Archetype.Giant, unlockWave = 6, budgetCost = 7, baseWeight = 3f,
+            weightPerWave = 0.8f, maximumWeight = 12f, hpMultiplier = 4.5f, speedMultiplier = 0.52f,
+            rootScale = 1.80f, visualScale = new Vector2(1.65f, 1.65f), color = new Color(0.48f, 0.18f, 0.14f),
+            scoreMultiplier = 5f, experienceMultiplier = 5, growthTierWaveInterval = 3, maximumGrowthTiers = 5,
+            hpMultiplierPerGrowthTier = 1.45f, rootScalePerGrowthTier = 0.18f }
     };
 
     private static RarityRow[] CreateDefaultRarities() => new[]

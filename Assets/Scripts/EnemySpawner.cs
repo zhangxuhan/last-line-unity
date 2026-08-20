@@ -61,7 +61,7 @@ public class EnemySpawner : MonoBehaviour
                 }
 
                 Enemy.Archetype archetype = RollAffordableArchetype(wave, remainingBudget);
-                SpawnEnemy(archetype);
+                SpawnEnemy(archetype, wave);
                 remainingBudget -= GetBudgetCost(archetype);
                 yield return WaitForPlayingSeconds(m_stage_loop.CurrentSpawnInterval);
             }
@@ -107,14 +107,14 @@ public class EnemySpawner : MonoBehaviour
             && m_stage_loop.State != StageLoop.GameState.GameOver;
     }
 
-    private void SpawnEnemy(Enemy.Archetype archetype)
+    private void SpawnEnemy(Enemy.Archetype archetype, int wave)
     {
         if (!m_prefab_enemy || !m_camera || !m_stage_loop || !m_stage_loop.IsPlaying) return;
         Enemy enemy = Instantiate(m_prefab_enemy, m_spawn_parent);
         enemy.transform.position = GetSpawnPosition();
         m_stage_loop.GetCurrentEnemyStats(out int maxHp, out float moveSpeed);
         float movementPhase = (float)(m_random.NextDouble() * Math.PI * 2d);
-        enemy.Initialize(m_stage_loop, maxHp, moveSpeed, m_stage_loop.DefenseLineY, archetype, movementPhase);
+        enemy.Initialize(m_stage_loop, maxHp, moveSpeed, m_stage_loop.DefenseLineY, archetype, movementPhase, wave);
     }
 
     private Enemy.Archetype RollAffordableArchetype(int wave, int remainingBudget)

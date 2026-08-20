@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
-    public enum Archetype { Normal, Brute, Runner, Elite, Weaver, Shield }
+    public enum Archetype { Normal, Brute, Runner, Elite, Weaver, Shield, Giant }
 
     [Header("Combat")]
     [SerializeField, Min(1)] private int m_max_hp = 30;
@@ -36,6 +36,7 @@ public class Enemy : MonoBehaviour
     private float m_lateral_amplitude;
     private float m_lateral_frequency;
     private int m_shield_hits_remaining;
+    private int m_shield_max_hits;
     private SpriteRenderer m_shield_renderer;
     private static Sprite s_shield_sprite;
     private static readonly List<Enemy> s_active_enemies = new List<Enemy>();
@@ -51,14 +52,14 @@ public class Enemy : MonoBehaviour
     }
 
     public void Initialize(StageLoop stageLoop, int maxHp, float moveSpeed, float defenseLineY,
-        Archetype archetype = Archetype.Normal, float movementPhase = 0f)
+        Archetype archetype = Archetype.Normal, float movementPhase = 0f, int waveNumber = 1)
     {
         m_stage_loop = stageLoop;
         m_archetype = archetype;
         m_lateral_origin_x = transform.position.x;
         m_lateral_phase = movementPhase;
         m_lateral_elapsed = 0f;
-        ApplyArchetype(archetype, ref maxHp, ref moveSpeed);
+        ApplyArchetype(archetype, waveNumber, ref maxHp, ref moveSpeed);
         m_max_hp = Mathf.Max(1, maxHp);
         m_current_hp = m_max_hp;
         m_move_speed = Mathf.Max(0f, moveSpeed);
@@ -169,19 +170,26 @@ public class Enemy : MonoBehaviour
         m_walk_phase = Random.Range(0f, Mathf.PI * 2f);
     }
 
-    private void ApplyArchetype(Archetype archetype, ref int maxHp, ref float moveSpeed)
+    private void ApplyArchetype(Archetype archetype, int waveNumber, ref int maxHp, ref float moveSpeed)
     {
         GameBalanceConfig.EnemyRow balance = GameBalanceConfig.Current.GetEnemy(archetype);
-        maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * balance.hpMultiplier));
+        int growthTier = balance.growthTierWaveInterval > 0
+            ? Mathf.Clamp((Mathf.Max(1, waveNumber) - balance.unlockWave) / balance.growthTierWaveInterval,
+                0, balance.maximumGrowthTiers)
+            : 0;
+        float tierHpMultiplier = Mathf.Pow(Mathf.Max(1f, balance.hpMultiplierPerGrowthTier), growthTier);
+        maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * balance.hpMultiplier * tierHpMultiplier));
         moveSpeed *= balance.speedMultiplier;
         m_score = Mathf.CeilToInt(m_score * balance.scoreMultiplier);
         m_experience = Mathf.Max(1, m_experience * balance.experienceMultiplier);
-        transform.localScale = m_base_root_scale * balance.rootScale;
+        transform.localScale = m_base_root_scale
+            * (balance.rootScale + growthTier * balance.rootScalePerGrowthTier);
         m_visual.localScale = new Vector3(balance.visualScale.x, balance.visualScale.y, 1f);
         m_visual_color = balance.color;
         m_lateral_amplitude = Mathf.Max(0f, balance.lateralAmplitude);
         m_lateral_frequency = Mathf.Max(0.01f, balance.lateralFrequency);
         m_shield_hits_remaining = Mathf.Max(0, balance.shieldBlockHits);
+        m_shield_max_hits = m_shield_hits_remaining;
 
         switch (archetype)
         {
@@ -202,6 +210,10 @@ public class Enemy : MonoBehaviour
             case Archetype.Shield:
                 m_walk_bob *= 0.70f;
                 m_walk_tilt *= 0.55f;
+                break;
+            case Archetype.Giant:
+                m_walk_bob *= 0.45f;
+                m_walk_tilt *= 0.50f;
                 break;
         }
         BuildArchetypeAccessories(archetype);
@@ -264,7 +276,8 @@ public class Enemy : MonoBehaviour
     private void UpdateShieldVisual()
     {
         if (!m_shield_renderer) return;
-        float strength = Mathf.Clamp01(m_shield_hits_remaining / 3f);
+        float strength = m_shield_max_hits > 0
+            ? Mathf.Clamp01((float)m_shield_hits_remaining / m_shield_max_hits) : 0f;
         m_shield_renderer.color = Color.Lerp(new Color(1f, 0.48f, 0.30f), Color.white, strength);
         float scale = 0.72f * Mathf.Lerp(0.88f, 1f, strength);
         m_shield_renderer.transform.localScale = new Vector3(scale, scale, 1f);
