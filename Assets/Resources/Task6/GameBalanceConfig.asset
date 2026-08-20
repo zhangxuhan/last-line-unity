@@ -14,17 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   difficulty:
     stageSeconds: 30
-    baseSpawnInterval: 1.4
-    minimumSpawnInterval: 0.5
+    baseSpawnInterval: 1.05
+    minimumSpawnInterval: 0.32
     baseEnemyHp: 30
     baseEnemySpeed: 0.9
-    hpMultiplierPerStage: 1.15
-    speedMultiplierPerStage: 1.05
-    spawnIntervalMultiplierPerStage: 0.92
+    hpMultiplierPerStage: 1.17
+    speedMultiplierPerStage: 1.06
+    spawnIntervalMultiplierPerStage: 0.9
   waves:
-    initialBudget: 7
-    budgetGrowthPerWave: 3
-    maximumActiveEnemies: 16
+    initialBudget: 12
+    budgetGrowthPerWave: 5
+    maximumActiveEnemies: 24
     restSeconds: 3
     debugSeed: 1337
   baseWeapon:
@@ -71,6 +71,7 @@ MonoBehaviour:
     experienceMultiplier: 1
     lateralAmplitude: 0
     lateralFrequency: 2.15
+    shieldBlockHits: 0
   - archetype: 2
     unlockWave: 2
     budgetCost: 1
@@ -87,6 +88,7 @@ MonoBehaviour:
     experienceMultiplier: 1
     lateralAmplitude: 0
     lateralFrequency: 2.15
+    shieldBlockHits: 0
   - archetype: 4
     unlockWave: 2
     budgetCost: 2
@@ -103,6 +105,7 @@ MonoBehaviour:
     experienceMultiplier: 2
     lateralAmplitude: 0.38
     lateralFrequency: 2.15
+    shieldBlockHits: 0
   - archetype: 1
     unlockWave: 3
     budgetCost: 2
@@ -119,6 +122,7 @@ MonoBehaviour:
     experienceMultiplier: 2
     lateralAmplitude: 0
     lateralFrequency: 2.15
+    shieldBlockHits: 0
   - archetype: 3
     unlockWave: 5
     budgetCost: 4
@@ -135,6 +139,24 @@ MonoBehaviour:
     experienceMultiplier: 3
     lateralAmplitude: 0
     lateralFrequency: 2.15
+    shieldBlockHits: 0
+  - archetype: 5
+    unlockWave: 3
+    budgetCost: 3
+    baseWeight: 8
+    weightPerWave: 1.2
+    minimumWeight: 0
+    maximumWeight: 18
+    hpMultiplier: 1.25
+    speedMultiplier: 0.78
+    rootScale: 1.12
+    visualScale: {x: 1.58, y: 1.58}
+    color: {r: 0.48, g: 0.72, b: 0.78, a: 1}
+    scoreMultiplier: 2.4
+    experienceMultiplier: 2
+    lateralAmplitude: 0
+    lateralFrequency: 2.15
+    shieldBlockHits: 3
   rarities:
   - rarity: 0
     rollWeight: 35

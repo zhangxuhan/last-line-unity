@@ -83,10 +83,10 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.Damage: Damage *= GetScaledPowerMultiplier(choice); break;
             case WeaponUpgradeType.FireInterval: FireInterval = Math.Max(MinimumFireInterval, FireInterval * GetScaledIntervalMultiplier(choice)); break;
             case WeaponUpgradeType.ProjectileSpeed: ProjectileSpeed *= GetScaledPowerMultiplier(choice); break;
-            case WeaponUpgradeType.ProjectileCount: ProjectileCount = Math.Min(MaximumProjectileCount, ProjectileCount + GetDiscreteIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.ProjectileCount: ProjectileCount = Math.Min(MaximumProjectileCount, ProjectileCount + 1); break;
             case WeaponUpgradeType.Penetration: PenetrationCount = Math.Min(MaximumPenetrationCount, PenetrationCount + GetDiscreteIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.CriticalChance: CriticalChance = Math.Min(MaximumCriticalChance, CriticalChance + GetScaledCriticalChanceIncrease(choice)); break;
-            case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(GameBalanceConfig.Current.upgradeRules.maximumBurstCount, BurstCount + GetAbilityIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(GameBalanceConfig.Current.upgradeRules.maximumBurstCount, BurstCount + 1); break;
             case WeaponUpgradeType.Lightning: LightningLevel = Math.Min(GameBalanceConfig.Current.upgradeRules.maximumLightningLevel, LightningLevel + GetAbilityIncrease(choice.Rarity)); break;
             default: return false;
         }
@@ -113,9 +113,9 @@ public sealed class WeaponRuntimeState
         int increase = GetDiscreteIncrease(choice.Rarity);
         switch (choice.Type)
         {
-            case WeaponUpgradeType.ProjectileCount: return Math.Min(MaximumProjectileCount, ProjectileCount + increase);
+            case WeaponUpgradeType.ProjectileCount: return Math.Min(MaximumProjectileCount, ProjectileCount + 1);
             case WeaponUpgradeType.Penetration: return Math.Min(MaximumPenetrationCount, PenetrationCount + increase);
-            case WeaponUpgradeType.BurstFire: return Math.Min(GameBalanceConfig.Current.upgradeRules.maximumBurstCount, BurstCount + GetAbilityIncrease(choice.Rarity));
+            case WeaponUpgradeType.BurstFire: return Math.Min(GameBalanceConfig.Current.upgradeRules.maximumBurstCount, BurstCount + 1);
             case WeaponUpgradeType.Lightning: return Math.Min(GameBalanceConfig.Current.upgradeRules.maximumLightningLevel, LightningLevel + GetAbilityIncrease(choice.Rarity));
             default: return 0;
         }
@@ -232,13 +232,13 @@ public static class WeaponUpgradeSystem
             case WeaponUpgradeType.ProjectileSpeed:
                 return new WeaponUpgradeOption(choice, "High-Velocity Rounds", PowerDescription(weapon.GetScaledPowerMultiplier(choice), "projectile speed"), $"{Format(weapon.ProjectileSpeed)} -> {Format(weapon.GetNextFloatValue(choice))}");
             case WeaponUpgradeType.ProjectileCount:
-                return new WeaponUpgradeOption(choice, "Multishot", $"Fire {WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} additional projectile(s).", $"{weapon.ProjectileCount} -> {weapon.GetNextIntValue(choice)} projectiles");
+                return new WeaponUpgradeOption(choice, "Multishot", "Fire 1 additional projectile. Rarity does not increase this amount.", $"{weapon.ProjectileCount} -> {weapon.GetNextIntValue(choice)} projectiles");
             case WeaponUpgradeType.Penetration:
                 return new WeaponUpgradeOption(choice, "Piercing Rounds", $"Penetrate {WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} additional enemy(s).", $"{weapon.PenetrationCount} -> {weapon.GetNextIntValue(choice)} extra penetration");
             case WeaponUpgradeType.CriticalChance:
                 return new WeaponUpgradeOption(choice, "Critical Rounds", "Shots can deal double damage.", $"{weapon.CriticalChance * 100f:0}% -> {weapon.GetNextFloatValue(choice) * 100f:0}% crit chance");
             case WeaponUpgradeType.BurstFire:
-                return new WeaponUpgradeOption(choice, "Burst Module", $"Add {WeaponRuntimeState.GetAbilityIncrease(choice.Rarity)} rapid volley per attack.", $"{weapon.BurstCount} -> {weapon.GetNextIntValue(choice)} volleys");
+                return new WeaponUpgradeOption(choice, "Burst Module", "Add 1 rapid volley per attack. Rarity does not increase this amount.", $"{weapon.BurstCount} -> {weapon.GetNextIntValue(choice)} volleys");
             case WeaponUpgradeType.Lightning:
                 return new WeaponUpgradeOption(choice, "Auto Lightning", $"Gain {WeaponRuntimeState.GetAbilityIncrease(choice.Rarity)} lightning level.", $"Level {weapon.LightningLevel} -> {weapon.GetNextIntValue(choice)}");
             default: throw new ArgumentOutOfRangeException(nameof(choice));

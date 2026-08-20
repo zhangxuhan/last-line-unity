@@ -86,6 +86,12 @@ public sealed class GameFeedback : MonoBehaviour
         Play(m_hit, 0.20f);
         SpawnBurst(position, new Color(1f, 0.82f, 0.28f), 4, 0.10f, 0.13f, m_hit_effect_pool);
     }
+    public void PlayShieldBlock(Vector3 position, int remainingBlocks)
+    {
+        Play(m_hit, 0.24f);
+        SpawnBurst(position, new Color(0.22f, 0.88f, 1f), 7, 0.12f, 0.18f, m_hit_effect_pool);
+        StartCoroutine(ShieldBlockTextRoutine(position, remainingBlocks));
+    }
     public void PlayEnemyDeath(Vector3 position)
     {
         Play(m_enemy_death, 0.35f);
@@ -284,6 +290,41 @@ public sealed class GameFeedback : MonoBehaviour
             yield return null;
         }
         if (numberObject) Destroy(numberObject);
+    }
+
+    private IEnumerator ShieldBlockTextRoutine(Vector3 position, int remainingBlocks)
+    {
+        if (!s_runtime_font) s_runtime_font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        GameObject textObject = new GameObject("ShieldBlock", typeof(TextMesh));
+        textObject.transform.SetParent(m_effect_root, false);
+        textObject.transform.position = position + new Vector3(0f, 0.38f, -0.1f);
+        TextMesh text = textObject.GetComponent<TextMesh>();
+        text.font = s_runtime_font;
+        text.text = remainingBlocks > 0 ? $"BLOCK  {remainingBlocks}" : "SHIELD BREAK";
+        text.anchor = TextAnchor.MiddleCenter;
+        text.alignment = TextAlignment.Center;
+        text.fontSize = 72;
+        text.characterSize = 0.042f;
+        text.fontStyle = FontStyle.Bold;
+        Color baseColor = remainingBlocks > 0 ? new Color(0.25f, 0.90f, 1f) : new Color(1f, 0.72f, 0.18f);
+        text.color = baseColor;
+        MeshRenderer renderer = textObject.GetComponent<MeshRenderer>();
+        if (s_runtime_font) renderer.sharedMaterial = s_runtime_font.material;
+        renderer.sortingOrder = 13;
+
+        float elapsed = 0f;
+        const float duration = 0.42f;
+        while (elapsed < duration && textObject)
+        {
+            float delta = Time.deltaTime;
+            elapsed += delta;
+            textObject.transform.position += Vector3.up * 0.42f * delta;
+            Color faded = baseColor;
+            faded.a = 1f - Mathf.Clamp01(elapsed / duration);
+            text.color = faded;
+            yield return null;
+        }
+        if (textObject) Destroy(textObject);
     }
 
     private IEnumerator LightningRoutine(Vector3 targetPosition)

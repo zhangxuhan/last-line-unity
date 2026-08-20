@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
-    public enum Archetype { Normal, Brute, Runner, Elite, Weaver }
+    public enum Archetype { Normal, Brute, Runner, Elite, Weaver, Shield }
 
     [Header("Combat")]
     [SerializeField, Min(1)] private int m_max_hp = 30;
@@ -35,6 +35,9 @@ public class Enemy : MonoBehaviour
     private float m_lateral_elapsed;
     private float m_lateral_amplitude;
     private float m_lateral_frequency;
+    private int m_shield_hits_remaining;
+    private SpriteRenderer m_shield_renderer;
+    private static Sprite s_square_sprite;
     private static readonly List<Enemy> s_active_enemies = new List<Enemy>();
 
     public int ExperienceReward => m_experience;
@@ -91,6 +94,14 @@ public class Enemy : MonoBehaviour
     public void TakeDamage(float damage, bool isCritical = false)
     {
         if (!m_initialized || m_is_settled || !m_stage_loop || !m_stage_loop.IsPlaying || damage <= 0) return;
+
+        if (m_shield_hits_remaining > 0)
+        {
+            m_shield_hits_remaining--;
+            UpdateShieldVisual();
+            m_stage_loop.Feedback?.PlayShieldBlock(transform.position, m_shield_hits_remaining);
+            return;
+        }
 
         m_current_hp -= damage;
         m_stage_loop.Feedback?.PlayHit(transform.position);
@@ -170,6 +181,7 @@ public class Enemy : MonoBehaviour
         m_visual_color = balance.color;
         m_lateral_amplitude = Mathf.Max(0f, balance.lateralAmplitude);
         m_lateral_frequency = Mathf.Max(0.01f, balance.lateralFrequency);
+        m_shield_hits_remaining = Mathf.Max(0, balance.shieldBlockHits);
 
         switch (archetype)
         {
@@ -187,9 +199,75 @@ public class Enemy : MonoBehaviour
                 m_walk_bob *= 0.90f;
                 m_walk_tilt *= 1.25f;
                 break;
+            case Archetype.Shield:
+                m_walk_bob *= 0.70f;
+                m_walk_tilt *= 0.55f;
+                break;
         }
+        BuildArchetypeAccessories(archetype);
         m_visual_base_scale = m_visual.localScale;
         if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
+    }
+
+    private void BuildArchetypeAccessories(Archetype archetype)
+    {
+        if (!s_square_sprite)
+            s_square_sprite = Sprite.Create(Texture2D.whiteTexture,
+                new Rect(0f, 0f, Texture2D.whiteTexture.width, Texture2D.whiteTexture.height),
+                new Vector2(0.5f, 0.5f), 4f);
+
+        switch (archetype)
+        {
+            case Archetype.Runner:
+                CreateAccessory("RunnerStripe", new Vector3(0f, 0.06f, 0f), new Vector3(0.42f, 0.08f, 1f),
+                    new Color(0.95f, 1f, 0.20f), 3);
+                break;
+            case Archetype.Brute:
+                CreateAccessory("LeftPauldron", new Vector3(-0.31f, 0.02f, 0f), new Vector3(0.20f, 0.30f, 1f),
+                    new Color(0.22f, 0.25f, 0.27f), 3);
+                CreateAccessory("RightPauldron", new Vector3(0.31f, 0.02f, 0f), new Vector3(0.20f, 0.30f, 1f),
+                    new Color(0.22f, 0.25f, 0.27f), 3);
+                break;
+            case Archetype.Weaver:
+                CreateAccessory("WeaverMark", new Vector3(0f, 0.12f, 0f), new Vector3(0.16f, 0.42f, 1f),
+                    new Color(0.20f, 1f, 1f), 3);
+                break;
+            case Archetype.Elite:
+                CreateAccessory("EliteCrest", new Vector3(0f, 0.38f, 0f), new Vector3(0.34f, 0.16f, 1f),
+                    new Color(1f, 0.38f, 0.92f), 3);
+                break;
+            case Archetype.Shield:
+                m_shield_renderer = CreateAccessory("Shield", new Vector3(0f, -0.34f, 0f),
+                    new Vector3(0.64f, 0.22f, 1f), new Color(0.22f, 0.72f, 0.88f), 4);
+                CreateAccessory("ShieldRim", new Vector3(0f, -0.34f, 0f), new Vector3(0.72f, 0.29f, 1f),
+                    new Color(0.04f, 0.12f, 0.16f), 3);
+                UpdateShieldVisual();
+                break;
+        }
+    }
+
+    private SpriteRenderer CreateAccessory(string objectName, Vector3 localPosition, Vector3 localScale,
+        Color color, int sortingOrder)
+    {
+        GameObject accessory = new GameObject(objectName, typeof(SpriteRenderer));
+        accessory.transform.SetParent(m_visual, false);
+        accessory.transform.localPosition = localPosition;
+        accessory.transform.localScale = localScale;
+        SpriteRenderer renderer = accessory.GetComponent<SpriteRenderer>();
+        renderer.sprite = s_square_sprite;
+        renderer.color = color;
+        renderer.sortingOrder = sortingOrder;
+        return renderer;
+    }
+
+    private void UpdateShieldVisual()
+    {
+        if (!m_shield_renderer) return;
+        float strength = Mathf.Clamp01(m_shield_hits_remaining / 3f);
+        m_shield_renderer.color = Color.Lerp(new Color(0.28f, 0.18f, 0.12f),
+            new Color(0.22f, 0.86f, 1f), strength);
+        m_shield_renderer.transform.localScale = new Vector3(0.64f * Mathf.Lerp(0.82f, 1f, strength), 0.22f, 1f);
+        m_shield_renderer.gameObject.SetActive(m_shield_hits_remaining > 0);
     }
 
     public static int CountActive(StageLoop stageLoop)

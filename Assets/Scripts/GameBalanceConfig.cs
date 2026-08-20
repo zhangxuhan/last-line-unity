@@ -8,21 +8,21 @@ public sealed class GameBalanceConfig : ScriptableObject
     public sealed class DifficultyTable
     {
         public float stageSeconds = 30f;
-        public float baseSpawnInterval = 1.4f;
-        public float minimumSpawnInterval = 0.5f;
+        public float baseSpawnInterval = 1.05f;
+        public float minimumSpawnInterval = 0.32f;
         public int baseEnemyHp = 30;
         public float baseEnemySpeed = 0.9f;
-        public float hpMultiplierPerStage = 1.15f;
-        public float speedMultiplierPerStage = 1.05f;
-        public float spawnIntervalMultiplierPerStage = 0.92f;
+        public float hpMultiplierPerStage = 1.17f;
+        public float speedMultiplierPerStage = 1.06f;
+        public float spawnIntervalMultiplierPerStage = 0.90f;
     }
 
     [Serializable]
     public sealed class WaveTable
     {
-        public int initialBudget = 7;
-        public int budgetGrowthPerWave = 3;
-        public int maximumActiveEnemies = 16;
+        public int initialBudget = 12;
+        public int budgetGrowthPerWave = 5;
+        public int maximumActiveEnemies = 24;
         public float restSeconds = 3f;
         public int debugSeed = 1337;
     }
@@ -82,6 +82,7 @@ public sealed class GameBalanceConfig : ScriptableObject
         public int experienceMultiplier = 1;
         public float lateralAmplitude;
         public float lateralFrequency = 2.15f;
+        public int shieldBlockHits;
     }
 
     [Serializable]
@@ -168,7 +169,11 @@ public sealed class GameBalanceConfig : ScriptableObject
         new EnemyRow { archetype = Enemy.Archetype.Elite, unlockWave = 5, budgetCost = 4, baseWeight = 4f,
             weightPerWave = 2f, maximumWeight = 14f, hpMultiplier = 3.2f, speedMultiplier = 0.82f,
             rootScale = 1.65f, visualScale = new Vector2(1.72f, 1.72f), color = new Color(0.72f, 0.48f, 1f),
-            scoreMultiplier = 3f, experienceMultiplier = 3 }
+            scoreMultiplier = 3f, experienceMultiplier = 3 },
+        new EnemyRow { archetype = Enemy.Archetype.Shield, unlockWave = 3, budgetCost = 3, baseWeight = 8f,
+            weightPerWave = 1.2f, maximumWeight = 18f, hpMultiplier = 1.25f, speedMultiplier = 0.78f,
+            rootScale = 1.12f, visualScale = new Vector2(1.58f, 1.58f), color = new Color(0.48f, 0.72f, 0.78f),
+            scoreMultiplier = 2.4f, experienceMultiplier = 2, shieldBlockHits = 3 }
     };
 
     private static RarityRow[] CreateDefaultRarities() => new[]
