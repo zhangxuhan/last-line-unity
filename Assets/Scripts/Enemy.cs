@@ -65,7 +65,7 @@ public class Enemy : MonoBehaviour
         if (m_is_settled) return;
         m_is_settled = true;
         DisableCollision();
-        m_stage_loop.AddScore(m_score);
+        m_stage_loop.RegisterEnemyKilled(m_score, m_experience);
         Destroy(gameObject);
     }
 

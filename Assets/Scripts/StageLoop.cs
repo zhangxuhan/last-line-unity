@@ -1,4 +1,5 @@
 using System.Collections;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -45,7 +46,11 @@ public class StageLoop : MonoBehaviour
     private GameObject m_stage_ui_root;
     private Text m_defense_text;
     private Text m_time_text;
+    private Text m_level_text;
+    private Text m_experience_text;
     private Text m_game_over_text;
+    private Image m_experience_fill;
+    private PlayerProgression m_progression;
     private int m_game_score;
     private int m_breach_count;
     private float m_survival_time;
@@ -54,6 +59,14 @@ public class StageLoop : MonoBehaviour
     public bool IsPlaying => State == GameState.Playing;
     public float DefenseLineY => GetCameraBottom() + m_defense_bottom_offset;
     public float SurvivalTime => m_survival_time;
+    public int Level => m_progression != null ? m_progression.Level : PlayerProgression.InitialLevel;
+    public int CurrentExperience => m_progression != null ? m_progression.CurrentExperience : 0;
+    public int RequiredExperience => m_progression != null
+        ? m_progression.RequiredExperience
+        : PlayerProgression.InitialExperienceRequirement;
+    public int KillCount => m_progression != null ? m_progression.KillCount : 0;
+    public int PendingUpgradeCount => m_progression != null ? m_progression.PendingUpgradeCount : 0;
+    public event Action<int> OnLevelUp;
     public float CurrentSpawnInterval
     {
         get
@@ -67,6 +80,7 @@ public class StageLoop : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        m_progression = new PlayerProgression();
         if (!m_game_camera) m_game_camera = Camera.main;
         CreateRuntimeUi();
         SetState(GameState.Title);
@@ -121,8 +135,10 @@ public class StageLoop : MonoBehaviour
         m_game_score = 0;
         m_breach_count = 0;
         m_survival_time = 0f;
+        m_progression.Reset();
         SetState(GameState.Playing);
         RefreshHud();
+        RefreshProgressionUi();
 
         Player player = Instantiate(m_prefab_player, m_stage_transform);
         player.transform.position = new Vector3(0f, GetCameraBottom() + m_player_bottom_offset, 0f);
@@ -139,11 +155,25 @@ public class StageLoop : MonoBehaviour
         moveSpeed = Mathf.Max(0f, m_base_enemy_speed * Mathf.Pow(m_speed_multiplier_per_stage, stage));
     }
 
-    public void AddScore(int value)
+    public void RegisterEnemyKilled(int scoreReward, int experienceReward)
     {
-        if (!IsPlaying || value <= 0) return;
-        m_game_score += value;
+        if (!IsPlaying || m_progression == null) return;
+
+        if (scoreReward > 0)
+            m_game_score = (int)Math.Min((long)m_game_score + scoreReward, int.MaxValue);
+
+        int previousLevel = m_progression.Level;
+        int levelUpCount = m_progression.RegisterKill(experienceReward);
         RefreshHud();
+        RefreshProgressionUi();
+
+        for (int index = 1; index <= levelUpCount; index++)
+            OnLevelUp?.Invoke(previousLevel + index);
+    }
+
+    public bool TryConsumePendingUpgrade()
+    {
+        return m_progression != null && m_progression.TryConsumePendingUpgrade();
     }
 
     public void RegisterBreach(Enemy enemy)
@@ -172,6 +202,7 @@ public class StageLoop : MonoBehaviour
         m_game_score = 0;
         m_breach_count = 0;
         m_survival_time = 0f;
+        m_progression?.Reset();
         m_stage_coroutine = null;
         m_title_loop.StartTitleLoop();
     }
@@ -224,6 +255,11 @@ public class StageLoop : MonoBehaviour
             new Vector2(10f, -10f), new Vector2(0f, 1f), TextAnchor.UpperLeft);
         m_time_text = CreateText("Time", new Vector2(1f, 1f), new Vector2(1f, 1f),
             new Vector2(-10f, -10f), new Vector2(1f, 1f), TextAnchor.UpperRight);
+        m_level_text = CreateText("Level", new Vector2(1f, 0f), new Vector2(1f, 0f),
+            new Vector2(-10f, 10f), new Vector2(1f, 0f), TextAnchor.LowerRight);
+        m_experience_text = CreateText("Experience", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
+            new Vector2(0f, 42f), new Vector2(0.5f, 0f), TextAnchor.LowerCenter);
+        CreateExperienceBar();
         m_game_over_text = CreateText("GameOver", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
             Vector2.zero, new Vector2(0.5f, 0.5f), TextAnchor.MiddleCenter);
         m_game_over_text.rectTransform.sizeDelta = new Vector2(620f, 360f);
@@ -252,12 +288,55 @@ public class StageLoop : MonoBehaviour
         if (m_time_text) m_time_text.text = $"Time {FormatTime(m_survival_time)}";
     }
 
+    private void CreateExperienceBar()
+    {
+        GameObject backgroundObject = new GameObject("ExperienceBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform backgroundTransform = backgroundObject.GetComponent<RectTransform>();
+        backgroundTransform.SetParent(m_stage_score_text.transform.parent, false);
+        backgroundTransform.anchorMin = new Vector2(0.5f, 0f);
+        backgroundTransform.anchorMax = new Vector2(0.5f, 0f);
+        backgroundTransform.pivot = new Vector2(0.5f, 0f);
+        backgroundTransform.anchoredPosition = new Vector2(0f, 36f);
+        backgroundTransform.sizeDelta = new Vector2(360f, 12f);
+        backgroundObject.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.65f);
+
+        GameObject fillObject = new GameObject("Fill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform fillTransform = fillObject.GetComponent<RectTransform>();
+        fillTransform.SetParent(backgroundTransform, false);
+        fillTransform.anchorMin = Vector2.zero;
+        fillTransform.anchorMax = Vector2.one;
+        fillTransform.offsetMin = new Vector2(2f, 2f);
+        fillTransform.offsetMax = new Vector2(-2f, -2f);
+        m_experience_fill = fillObject.GetComponent<Image>();
+        m_experience_fill.color = new Color(0.2f, 0.85f, 1f, 1f);
+        m_experience_fill.type = Image.Type.Filled;
+        m_experience_fill.fillMethod = Image.FillMethod.Horizontal;
+        m_experience_fill.fillOrigin = 0;
+        m_experience_fill.fillAmount = 0f;
+    }
+
+    private void RefreshProgressionUi()
+    {
+        if (m_progression == null) return;
+        if (m_level_text) m_level_text.text = $"Level {m_progression.Level}";
+        if (m_experience_text)
+            m_experience_text.text = $"EXP {m_progression.CurrentExperience} / {m_progression.RequiredExperience}";
+        if (m_experience_fill)
+        {
+            float progress = m_progression.RequiredExperience > 0
+                ? (float)m_progression.CurrentExperience / m_progression.RequiredExperience
+                : 0f;
+            m_experience_fill.fillAmount = Mathf.Clamp01(progress);
+        }
+    }
+
     private void RefreshGameOverText()
     {
         if (!m_game_over_text) return;
         m_game_over_text.text =
             $"GAME OVER\n\nFinal Score: {m_game_score}\nSurvival Time: {FormatTime(m_survival_time)}\n" +
-            $"Breaches: {m_breach_count} / {m_max_breaches}\n\nPress Space to Restart\nPress Esc to Return to Title";
+            $"Breaches: {m_breach_count} / {m_max_breaches}\nFinal Level: {Level}\nTotal Kills: {KillCount}\n\n" +
+            "Press Space to Restart\nPress Esc to Return to Title";
     }
 
     private static string FormatTime(float time)
@@ -303,6 +382,7 @@ public class StageLoop : MonoBehaviour
 
     private void OnDestroy()
     {
+        OnLevelUp = null;
         if (Instance == this) Instance = null;
     }
 }
