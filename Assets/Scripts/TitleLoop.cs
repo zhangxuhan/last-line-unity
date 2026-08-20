@@ -13,9 +13,11 @@ public class TitleLoop : MonoBehaviour
     private GameObject m_leaderboard_panel;
     private Text m_leaderboard_text;
     private bool m_leaderboard_open;
+    private bool m_start_requested;
 
     private void Start()
     {
+        CreateTitlePresentation();
         CreateLeaderboardUi();
         StartTitleLoop();
     }
@@ -23,6 +25,7 @@ public class TitleLoop : MonoBehaviour
     public void StartTitleLoop()
     {
         if (m_title_coroutine != null) StopCoroutine(m_title_coroutine);
+        m_start_requested = false;
         m_title_coroutine = StartCoroutine(TitleCoroutine());
     }
 
@@ -36,8 +39,9 @@ public class TitleLoop : MonoBehaviour
             {
                 CloseLeaderboard();
             }
-            else if (!m_leaderboard_open && Input.GetKeyDown(KeyCode.Space))
+            else if (!m_leaderboard_open && (m_start_requested || Input.GetKeyDown(KeyCode.Space)))
             {
+                m_start_requested = false;
                 m_ui_title.gameObject.SetActive(false);
                 m_title_coroutine = null;
                 m_stage_loop.StartStageLoop();
@@ -45,6 +49,123 @@ public class TitleLoop : MonoBehaviour
             }
             yield return null;
         }
+    }
+
+    private void CreateTitlePresentation()
+    {
+        if (!m_ui_title || m_ui_title.Find("TitleBackdrop")) return;
+        Text template = m_ui_title.GetComponentInChildren<Text>(true);
+        if (!template) return;
+
+        Canvas canvas = m_ui_title.GetComponentInParent<Canvas>();
+        if (canvas && !canvas.GetComponent<GraphicRaycaster>()) canvas.gameObject.AddComponent<GraphicRaycaster>();
+        if (!EventSystem.current)
+        {
+            GameObject eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            eventSystemObject.transform.SetParent(transform, false);
+        }
+
+        GameObject backdrop = new GameObject("TitleBackdrop", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform backdropRect = backdrop.GetComponent<RectTransform>();
+        backdropRect.SetParent(m_ui_title, false);
+        backdropRect.anchorMin = Vector2.zero;
+        backdropRect.anchorMax = Vector2.one;
+        backdropRect.offsetMin = Vector2.zero;
+        backdropRect.offsetMax = Vector2.zero;
+        backdrop.GetComponent<Image>().color = new Color(0.015f, 0.035f, 0.055f, 0.90f);
+        backdropRect.SetAsFirstSibling();
+
+        Text title = m_ui_title.Find("TitleText")?.GetComponent<Text>();
+        if (title)
+        {
+            title.text = "LAST LINE";
+            title.rectTransform.anchoredPosition = new Vector2(0f, -142f);
+            title.rectTransform.sizeDelta = new Vector2(650f, 116f);
+            title.fontSize = 72;
+            title.fontStyle = FontStyle.Bold;
+            title.color = new Color(0.72f, 0.96f, 1f);
+            Outline titleOutline = title.GetComponent<Outline>();
+            if (!titleOutline) titleOutline = title.gameObject.AddComponent<Outline>();
+            titleOutline.effectColor = new Color(0.02f, 0.36f, 0.48f, 0.95f);
+            titleOutline.effectDistance = new Vector2(3f, -3f);
+        }
+
+        Text subtitle = CreateLabel(template, m_ui_title, "HOLD THE DEFENSE  •  SURVIVE  •  EVOLVE", 20,
+            new Color(0.32f, 0.82f, 0.92f));
+        subtitle.name = "Subtitle";
+        subtitle.rectTransform.anchorMin = new Vector2(0.5f, 1f);
+        subtitle.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+        subtitle.rectTransform.pivot = new Vector2(0.5f, 1f);
+        subtitle.rectTransform.anchoredPosition = new Vector2(0f, -214f);
+        subtitle.rectTransform.sizeDelta = new Vector2(620f, 42f);
+
+        GameObject missionPanel = new GameObject("MissionPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform missionRect = missionPanel.GetComponent<RectTransform>();
+        missionRect.SetParent(m_ui_title, false);
+        missionRect.anchorMin = new Vector2(0.5f, 0.5f);
+        missionRect.anchorMax = new Vector2(0.5f, 0.5f);
+        missionRect.anchoredPosition = new Vector2(0f, 24f);
+        missionRect.sizeDelta = new Vector2(620f, 214f);
+        missionPanel.GetComponent<Image>().color = new Color(0.025f, 0.10f, 0.15f, 0.94f);
+        Outline missionOutline = missionPanel.AddComponent<Outline>();
+        missionOutline.effectColor = new Color(0.12f, 0.48f, 0.60f, 0.85f);
+        missionOutline.effectDistance = new Vector2(2f, -2f);
+
+        Text instructions = m_ui_title.Find("PressStart")?.GetComponent<Text>();
+        if (instructions)
+        {
+            instructions.text = "MOVE    A / D  or  ARROW KEYS\nAIM       MOUSE\nFIRE      HOLD LEFT MOUSE  or  AUTO FIRE\n\nStop every enemy before the defense line falls.";
+            instructions.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+            instructions.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            instructions.rectTransform.anchoredPosition = new Vector2(0f, 24f);
+            instructions.rectTransform.sizeDelta = new Vector2(560f, 178f);
+            instructions.fontSize = 23;
+            instructions.fontStyle = FontStyle.Bold;
+            instructions.color = new Color(0.88f, 0.96f, 1f);
+            instructions.raycastTarget = false;
+            instructions.transform.SetAsLastSibling();
+        }
+
+        CreateMenuButton(template, "StartButton", new Vector2(0f, -164f), new Vector2(320f, 64f),
+            "START GAME", new Color(0.06f, 0.58f, 0.72f, 1f), RequestStart);
+
+        Text shortcut = CreateLabel(template, m_ui_title, "or press SPACE", 17, new Color(0.55f, 0.72f, 0.78f));
+        shortcut.name = "StartShortcut";
+        shortcut.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        shortcut.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        shortcut.rectTransform.anchoredPosition = new Vector2(0f, -208f);
+        shortcut.rectTransform.sizeDelta = new Vector2(260f, 28f);
+    }
+
+    private Button CreateMenuButton(Text template, string name, Vector2 position, Vector2 size,
+        string label, Color color, UnityEngine.Events.UnityAction action)
+    {
+        GameObject buttonObject = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.SetParent(m_ui_title, false);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = size;
+        Image image = buttonObject.GetComponent<Image>();
+        image.color = color;
+        Outline outline = buttonObject.AddComponent<Outline>();
+        outline.effectColor = Color.Lerp(color, Color.white, 0.35f);
+        outline.effectDistance = new Vector2(2f, -2f);
+        Button button = buttonObject.GetComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.78f, 0.98f, 1f);
+        colors.pressedColor = new Color(0.55f, 0.78f, 0.84f);
+        button.colors = colors;
+        button.onClick.AddListener(action);
+        CreateLabel(template, rect, label, 25, Color.white);
+        return button;
+    }
+
+    private void RequestStart()
+    {
+        if (!m_leaderboard_open) m_start_requested = true;
     }
 
     private void CreateLeaderboardUi()
@@ -64,7 +185,7 @@ public class TitleLoop : MonoBehaviour
         buttonRect.SetParent(m_ui_title, false);
         buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
         buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
-        buttonRect.anchoredPosition = new Vector2(0f, -105f);
+        buttonRect.anchoredPosition = new Vector2(0f, -276f);
         buttonRect.sizeDelta = new Vector2(280f, 58f);
         Image buttonImage = buttonObject.GetComponent<Image>();
         buttonImage.color = new Color(0.06f, 0.20f, 0.30f, 0.96f);

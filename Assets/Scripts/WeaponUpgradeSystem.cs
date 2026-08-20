@@ -7,7 +7,7 @@ public enum WeaponUpgradeType
     Damage, FireInterval, ProjectileSpeed, ProjectileCount, Penetration,
     CriticalChance, BurstFire, Lightning
 }
-public enum UpgradeRarity { R, SR, SSR }
+public enum UpgradeRarity { R, SR, SSR, UR }
 
 public readonly struct WeaponUpgradeChoice
 {
@@ -82,8 +82,8 @@ public sealed class WeaponRuntimeState
             case WeaponUpgradeType.ProjectileCount: ProjectileCount = Math.Min(MaximumProjectileCount, ProjectileCount + GetDiscreteIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.Penetration: PenetrationCount = Math.Min(MaximumPenetrationCount, PenetrationCount + GetDiscreteIncrease(choice.Rarity)); break;
             case WeaponUpgradeType.CriticalChance: CriticalChance = Math.Min(MaximumCriticalChance, CriticalChance + GetCriticalChanceIncrease(choice.Rarity)); break;
-            case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(3, BurstCount + 1); break;
-            case WeaponUpgradeType.Lightning: LightningLevel = Math.Min(3, LightningLevel + 1); break;
+            case WeaponUpgradeType.BurstFire: BurstCount = Math.Min(3, BurstCount + GetAbilityIncrease(choice.Rarity)); break;
+            case WeaponUpgradeType.Lightning: LightningLevel = Math.Min(3, LightningLevel + GetAbilityIncrease(choice.Rarity)); break;
             default: return false;
         }
         return true;
@@ -108,19 +108,24 @@ public sealed class WeaponRuntimeState
         {
             case WeaponUpgradeType.ProjectileCount: return Math.Min(MaximumProjectileCount, ProjectileCount + increase);
             case WeaponUpgradeType.Penetration: return Math.Min(MaximumPenetrationCount, PenetrationCount + increase);
-            case WeaponUpgradeType.BurstFire: return Math.Min(3, BurstCount + 1);
-            case WeaponUpgradeType.Lightning: return Math.Min(3, LightningLevel + 1);
+            case WeaponUpgradeType.BurstFire: return Math.Min(3, BurstCount + GetAbilityIncrease(choice.Rarity));
+            case WeaponUpgradeType.Lightning: return Math.Min(3, LightningLevel + GetAbilityIncrease(choice.Rarity));
             default: return 0;
         }
     }
 
     public static float GetPowerMultiplier(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 1.20f : rarity == UpgradeRarity.SR ? 1.30f : 1.45f;
+        => rarity == UpgradeRarity.R ? 1.20f : rarity == UpgradeRarity.SR ? 1.30f
+            : rarity == UpgradeRarity.SSR ? 1.45f : 1.65f;
     public static float GetIntervalMultiplier(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 0.88f : rarity == UpgradeRarity.SR ? 0.82f : 0.72f;
-    public static int GetDiscreteIncrease(UpgradeRarity rarity) => rarity == UpgradeRarity.SSR ? 2 : 1;
+        => rarity == UpgradeRarity.R ? 0.88f : rarity == UpgradeRarity.SR ? 0.82f
+            : rarity == UpgradeRarity.SSR ? 0.72f : 0.62f;
+    public static int GetDiscreteIncrease(UpgradeRarity rarity)
+        => rarity == UpgradeRarity.UR ? 3 : rarity == UpgradeRarity.SSR ? 2 : 1;
+    public static int GetAbilityIncrease(UpgradeRarity rarity) => rarity == UpgradeRarity.UR ? 2 : 1;
     public static float GetCriticalChanceIncrease(UpgradeRarity rarity)
-        => rarity == UpgradeRarity.R ? 0.10f : rarity == UpgradeRarity.SR ? 0.15f : 0.25f;
+        => rarity == UpgradeRarity.R ? 0.10f : rarity == UpgradeRarity.SR ? 0.15f
+            : rarity == UpgradeRarity.SSR ? 0.25f : 0.35f;
 }
 
 public static class WeaponUpgradeSystem
@@ -136,26 +141,73 @@ public static class WeaponUpgradeSystem
     {
         var types = new List<WeaponUpgradeType>(AllTypes.Length);
         foreach (WeaponUpgradeType type in AllTypes) if (weapon.CanApply(type)) types.Add(type);
-        for (int index = types.Count - 1; index > 0; index--)
-        {
-            int swapIndex = random.Next(index + 1);
-            WeaponUpgradeType value = types[index];
-            types[index] = types[swapIndex];
-            types[swapIndex] = value;
-        }
 
         int count = Math.Min(maximumCount, types.Count);
         var choices = new List<WeaponUpgradeChoice>(count);
-        for (int index = 0; index < count; index++) choices.Add(new WeaponUpgradeChoice(types[index], RollRarity(random)));
+        for (int index = 0; index < count; index++)
+        {
+            int selectedIndex = PickWeightedTypeIndex(types, random);
+            WeaponUpgradeType type = types[selectedIndex];
+            types.RemoveAt(selectedIndex);
+            choices.Add(new WeaponUpgradeChoice(type, RollRarity(type, random)));
+        }
         return choices;
+    }
+
+    private static int PickWeightedTypeIndex(List<WeaponUpgradeType> types, Random random)
+    {
+        float totalWeight = 0f;
+        foreach (WeaponUpgradeType type in types) totalWeight += GetTypeWeight(type);
+        double roll = random.NextDouble() * totalWeight;
+        for (int index = 0; index < types.Count; index++)
+        {
+            roll -= GetTypeWeight(types[index]);
+            if (roll <= 0d) return index;
+        }
+        return types.Count - 1;
+    }
+
+    private static float GetTypeWeight(WeaponUpgradeType type)
+    {
+        switch (type)
+        {
+            case WeaponUpgradeType.Damage: return 1.35f;
+            case WeaponUpgradeType.FireInterval: return 1.20f;
+            case WeaponUpgradeType.CriticalChance: return 1.00f;
+            case WeaponUpgradeType.ProjectileSpeed:
+            case WeaponUpgradeType.Penetration: return 0.90f;
+            case WeaponUpgradeType.ProjectileCount: return 0.65f;
+            case WeaponUpgradeType.Lightning: return 0.45f;
+            case WeaponUpgradeType.BurstFire: return 0.28f;
+            default: return 1f;
+        }
     }
 
     public static UpgradeRarity RollRarity(Random random)
     {
         int roll = random.Next(100);
-        if (roll < 40) return UpgradeRarity.R;
-        if (roll < 80) return UpgradeRarity.SR;
-        return UpgradeRarity.SSR;
+        if (roll < 35) return UpgradeRarity.R;
+        if (roll < 73) return UpgradeRarity.SR;
+        if (roll < 93) return UpgradeRarity.SSR;
+        return UpgradeRarity.UR;
+    }
+
+    public static UpgradeRarity RollRarity(WeaponUpgradeType type, Random random)
+    {
+        UpgradeRarity rarity = RollRarity(random);
+        UpgradeRarity minimum = GetMinimumRarity(type);
+        return rarity < minimum ? minimum : rarity;
+    }
+
+    public static UpgradeRarity GetMinimumRarity(WeaponUpgradeType type)
+    {
+        switch (type)
+        {
+            case WeaponUpgradeType.BurstFire: return UpgradeRarity.SSR;
+            case WeaponUpgradeType.ProjectileCount:
+            case WeaponUpgradeType.Lightning: return UpgradeRarity.SR;
+            default: return UpgradeRarity.R;
+        }
     }
 
     public static WeaponUpgradeOption BuildOption(WeaponUpgradeChoice choice, WeaponRuntimeState weapon)
@@ -175,9 +227,9 @@ public static class WeaponUpgradeSystem
             case WeaponUpgradeType.CriticalChance:
                 return new WeaponUpgradeOption(choice, "Critical Rounds", "Shots can deal double damage.", $"{weapon.CriticalChance * 100f:0}% -> {weapon.GetNextFloatValue(choice) * 100f:0}% crit chance");
             case WeaponUpgradeType.BurstFire:
-                return new WeaponUpgradeOption(choice, "Burst Module", "Fire an additional rapid volley per attack.", $"{weapon.BurstCount} -> {weapon.GetNextIntValue(choice)} volleys");
+                return new WeaponUpgradeOption(choice, "Burst Module", $"Add {WeaponRuntimeState.GetAbilityIncrease(choice.Rarity)} rapid volley per attack.", $"{weapon.BurstCount} -> {weapon.GetNextIntValue(choice)} volleys");
             case WeaponUpgradeType.Lightning:
-                return new WeaponUpgradeOption(choice, "Auto Lightning", "Periodically execute the enemy closest to the defense line.", $"Level {weapon.LightningLevel} -> {weapon.GetNextIntValue(choice)}");
+                return new WeaponUpgradeOption(choice, "Auto Lightning", $"Gain {WeaponRuntimeState.GetAbilityIncrease(choice.Rarity)} lightning level.", $"Level {weapon.LightningLevel} -> {weapon.GetNextIntValue(choice)}");
             default: throw new ArgumentOutOfRangeException(nameof(choice));
         }
     }

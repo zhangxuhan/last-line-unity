@@ -96,6 +96,7 @@ public class StageLoop : MonoBehaviour
     private readonly Button[] m_upgrade_buttons = new Button[3];
     private readonly Text[] m_upgrade_button_texts = new Text[3];
     private readonly Image[] m_upgrade_button_icons = new Image[3];
+    private readonly Outline[] m_upgrade_button_outlines = new Outline[3];
     private readonly WeaponUpgradeChoice[] m_current_upgrade_choices = new WeaponUpgradeChoice[3];
     private PlayerProgression m_progression;
     private Player m_player;
@@ -308,15 +309,23 @@ public class StageLoop : MonoBehaviour
             m_upgrade_button_texts[index].text = $"[{index + 1}] [{choice.Rarity}] {option.Name}\n{option.Description}\n{option.ValueChange}";
             Color rarityColor = GetRarityColor(choice.Rarity);
             ColorBlock colors = m_upgrade_buttons[index].colors;
-            colors.normalColor = rarityColor;
-            colors.highlightedColor = Color.Lerp(rarityColor, Color.white, 0.18f);
+            colors.normalColor = Color.white;
+            colors.highlightedColor = Color.Lerp(Color.white, rarityColor, 0.12f);
             colors.selectedColor = colors.highlightedColor;
-            colors.pressedColor = Color.Lerp(rarityColor, Color.black, 0.22f);
-            colors.disabledColor = new Color(rarityColor.r, rarityColor.g, rarityColor.b, 0.55f);
+            colors.pressedColor = new Color(0.72f, 0.72f, 0.72f, 1f);
+            colors.disabledColor = new Color(1f, 1f, 1f, 0.62f);
             colors.colorMultiplier = 1f;
             colors.fadeDuration = 0.08f;
             m_upgrade_buttons[index].colors = colors;
             m_upgrade_buttons[index].image.color = rarityColor;
+            if (m_upgrade_button_outlines[index])
+            {
+                m_upgrade_button_outlines[index].effectColor = Color.Lerp(rarityColor, Color.white,
+                    choice.Rarity == UpgradeRarity.UR ? 0.28f : 0.12f);
+                float outlineSize = choice.Rarity == UpgradeRarity.R ? 1f
+                    : choice.Rarity == UpgradeRarity.SR ? 2f : choice.Rarity == UpgradeRarity.SSR ? 3f : 4f;
+                m_upgrade_button_outlines[index].effectDistance = new Vector2(outlineSize, -outlineSize);
+            }
             m_upgrade_buttons[index].interactable = false;
         }
     }
@@ -508,16 +517,30 @@ public class StageLoop : MonoBehaviour
         for (int index = 0; index < m_current_upgrade_count; index++)
         {
             RectTransform card = m_upgrade_buttons[index].GetComponent<RectTransform>();
+            UpgradeRarity rarity = m_current_upgrade_choices[index].Rarity;
             float cardElapsed = 0f;
-            const float cardDuration = 0.075f;
+            float cardDuration = rarity == UpgradeRarity.R ? 0.075f
+                : rarity == UpgradeRarity.SR ? 0.11f : rarity == UpgradeRarity.SSR ? 0.16f : 0.22f;
             while (cardElapsed < cardDuration && State == GameState.LevelUp)
             {
                 cardElapsed += Time.unscaledDeltaTime;
-                float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(cardElapsed / cardDuration));
-                card.localScale = Vector3.one * Mathf.Lerp(0.84f, 1f, progress);
+                float normalized = Mathf.Clamp01(cardElapsed / cardDuration);
+                float progress = Mathf.SmoothStep(0f, 1f, normalized);
+                float overshoot = rarity == UpgradeRarity.R ? 0f : Mathf.Sin(normalized * Mathf.PI) *
+                    (rarity == UpgradeRarity.SR ? 0.025f : rarity == UpgradeRarity.SSR ? 0.045f : 0.065f);
+                card.localScale = Vector3.one * (Mathf.Lerp(0.84f, 1f, progress) + overshoot);
+                if (m_upgrade_button_outlines[index] && rarity != UpgradeRarity.R)
+                {
+                    int pulses = rarity == UpgradeRarity.SR ? 1 : rarity == UpgradeRarity.SSR ? 2 : 3;
+                    Color glow = GetRarityColor(rarity);
+                    glow.a = Mathf.Lerp(0.45f, 1f, Mathf.Abs(Mathf.Sin(normalized * Mathf.PI * pulses)));
+                    m_upgrade_button_outlines[index].effectColor = glow;
+                }
                 yield return null;
             }
             card.localScale = Vector3.one;
+            if (m_upgrade_button_outlines[index])
+                m_upgrade_button_outlines[index].effectColor = GetRarityColor(rarity);
         }
 
         if (State == GameState.LevelUp)
@@ -853,6 +876,10 @@ public class StageLoop : MonoBehaviour
             Image buttonImage = buttonObject.GetComponent<Image>();
             buttonImage.color = new Color(0.12f, 0.24f, 0.38f, 1f);
             Button button = buttonObject.GetComponent<Button>();
+            Outline cardOutline = buttonObject.AddComponent<Outline>();
+            cardOutline.effectColor = new Color(0.2f, 0.55f, 0.75f, 0.85f);
+            cardOutline.effectDistance = new Vector2(1f, -1f);
+            m_upgrade_button_outlines[index] = cardOutline;
             ColorBlock colors = button.colors;
             colors.highlightedColor = new Color(0.2f, 0.42f, 0.62f, 1f);
             colors.pressedColor = new Color(0.08f, 0.18f, 0.28f, 1f);
@@ -933,6 +960,7 @@ public class StageLoop : MonoBehaviour
             case UpgradeRarity.R: return new Color(0.12f, 0.32f, 0.68f, 1f);
             case UpgradeRarity.SR: return new Color(0.46f, 0.18f, 0.68f, 1f);
             case UpgradeRarity.SSR: return new Color(0.92f, 0.42f, 0.08f, 1f);
+            case UpgradeRarity.UR: return new Color(0.86f, 0.055f, 0.075f, 1f);
             default: return Color.gray;
         }
     }
