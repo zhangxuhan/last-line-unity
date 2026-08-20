@@ -54,9 +54,9 @@ public sealed class DefenseMinePulse : MonoBehaviour
     {
         if (!m_halo || !StageLoop.Instance || !StageLoop.Instance.IsPlaying) return;
         float pulse = 0.5f + Mathf.Sin(Time.time * 4.2f + m_phase) * 0.5f;
-        m_halo.transform.localScale = Vector3.one * Mathf.Lerp(1.65f, 2.25f, pulse);
-        m_halo.color = new Color(1f, 0.08f, 0.035f, Mathf.Lerp(0.24f, 0.52f, pulse));
-        if (m_core) m_core.color = Color.Lerp(Color.white, new Color(1f, 0.58f, 0.50f), pulse * 0.22f);
+        m_halo.transform.localScale = Vector3.one * Mathf.Lerp(1.90f, 2.70f, pulse);
+        m_halo.color = new Color(1f, 0.025f, 0.01f, Mathf.Lerp(0.42f, 0.82f, pulse));
+        if (m_core) m_core.color = Color.Lerp(Color.white, new Color(1f, 0.38f, 0.30f), 0.10f + pulse * 0.30f);
     }
 }
 
@@ -330,7 +330,10 @@ public class StageLoop : MonoBehaviour
             m_current_upgrade_choices[index] = choice;
             if (m_upgrade_button_icons[index]) m_upgrade_button_icons[index].sprite = GetUpgradeIcon(choice.Type);
             WeaponUpgradeOption option = WeaponUpgradeSystem.BuildOption(choice, m_player.RuntimeWeapon);
-            m_upgrade_button_texts[index].text = $"[{index + 1}] [{choice.Rarity}] {option.Name}\n{option.Description}\n{option.ValueChange}";
+            m_upgrade_button_texts[index].text =
+                $"<size=21><b>[{index + 1}] [{choice.Rarity}] {option.Name.ToUpperInvariant()}</b></size>\n" +
+                $"<size=15><color=#C6DCE6>{option.Description}</color></size>\n" +
+                $"<size=18><b><color=#FFE08A>{option.ValueChange}</color></b></size>";
             Color rarityColor = GetRarityColor(choice.Rarity);
             ColorBlock colors = m_upgrade_buttons[index].colors;
             colors.normalColor = Color.white;
@@ -449,9 +452,9 @@ public class StageLoop : MonoBehaviour
             haloObject.transform.SetParent(bomb.transform, false);
             SpriteRenderer halo = haloObject.GetComponent<SpriteRenderer>();
             halo.sprite = GetDefenseMineGlowSprite();
-            halo.color = new Color(1f, 0.08f, 0.035f, 0.32f);
+            halo.color = new Color(1f, 0.025f, 0.01f, 0.52f);
             halo.sortingOrder = 2;
-            haloObject.transform.localScale = Vector3.one * 1.8f;
+            haloObject.transform.localScale = Vector3.one * 2.1f;
 
             DefenseMinePulse pulse = bomb.AddComponent<DefenseMinePulse>();
             pulse.Initialize(renderer, halo, lane * 1.17f);
@@ -959,6 +962,8 @@ public class StageLoop : MonoBehaviour
             optionText.color = Color.white;
             optionText.raycastTarget = false;
             StyleText(optionText, 19, Color.white);
+            optionText.supportRichText = true;
+            optionText.fontStyle = FontStyle.Normal;
             optionText.resizeTextForBestFit = true;
             optionText.resizeTextMinSize = 13;
             optionText.resizeTextMaxSize = 19;
