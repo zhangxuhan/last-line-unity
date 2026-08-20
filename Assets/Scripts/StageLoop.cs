@@ -246,6 +246,8 @@ public class StageLoop : MonoBehaviour
             colors.selectedColor = colors.highlightedColor;
             colors.pressedColor = Color.Lerp(rarityColor, Color.black, 0.22f);
             colors.disabledColor = new Color(rarityColor.r, rarityColor.g, rarityColor.b, 0.55f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
             m_upgrade_buttons[index].colors = colors;
             m_upgrade_buttons[index].image.color = rarityColor;
             m_upgrade_buttons[index].interactable = true;
@@ -516,16 +518,15 @@ public class StageLoop : MonoBehaviour
     private void RefreshProgressionUi()
     {
         if (m_progression == null) return;
+        float progress = m_progression.RequiredExperience > 0
+            ? Mathf.Clamp01((float)m_progression.CurrentExperience / m_progression.RequiredExperience)
+            : 0f;
+        int percentage = Mathf.RoundToInt(progress * 100f);
+
         if (m_level_text) m_level_text.text = $"Level {m_progression.Level}";
         if (m_experience_text)
-            m_experience_text.text = $"EXP {m_progression.CurrentExperience} / {m_progression.RequiredExperience}";
-        if (m_experience_fill)
-        {
-            float progress = m_progression.RequiredExperience > 0
-                ? (float)m_progression.CurrentExperience / m_progression.RequiredExperience
-                : 0f;
-            m_experience_fill.fillAmount = Mathf.Clamp01(progress);
-        }
+            m_experience_text.text = $"EXP {m_progression.CurrentExperience} / {m_progression.RequiredExperience} ({percentage}%)";
+        if (m_experience_fill) m_experience_fill.fillAmount = progress;
     }
 
     private void RefreshGameOverText()
