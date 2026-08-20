@@ -331,8 +331,8 @@ public class StageLoop : MonoBehaviour
             if (m_upgrade_button_icons[index]) m_upgrade_button_icons[index].sprite = GetUpgradeIcon(choice.Type);
             WeaponUpgradeOption option = WeaponUpgradeSystem.BuildOption(choice, m_player.RuntimeWeapon);
             m_upgrade_button_texts[index].text =
-                $"<size=21><b>[{index + 1}] [{choice.Rarity}] {option.Name.ToUpperInvariant()}</b></size>\n" +
-                $"<size=15><color=#C6DCE6>{option.Description}</color></size>\n" +
+                $"<size=22><b><color=#E8FBFF>[{index + 1}] [{choice.Rarity}] {option.Name.ToUpperInvariant()}</color></b></size>\n" +
+                $"<size=17><b><color=#FFFFFF>{option.Description}</color></b></size>\n" +
                 $"<size=18><b><color=#FFE08A>{option.ValueChange}</color></b></size>";
             Color rarityColor = GetRarityColor(choice.Rarity);
             ColorBlock colors = m_upgrade_buttons[index].colors;
