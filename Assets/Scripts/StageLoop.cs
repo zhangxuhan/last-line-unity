@@ -64,7 +64,7 @@ public class StageLoop : MonoBehaviour
     private Player m_player;
     private System.Random m_upgrade_random;
     private int m_current_upgrade_count;
-    private int m_accept_upgrade_input_frame;
+    private float m_accept_upgrade_input_time;
     private bool m_upgrade_selection_locked;
     private int m_game_score;
     private int m_breach_count;
@@ -149,7 +149,7 @@ public class StageLoop : MonoBehaviour
                     yield break;
                 }
 
-                if (Time.frameCount >= m_accept_upgrade_input_frame)
+                if (Time.unscaledTime >= m_accept_upgrade_input_time)
                 {
                     if (Input.GetKeyDown(KeyCode.Alpha1)) SelectUpgrade(0);
                     else if (Input.GetKeyDown(KeyCode.Alpha2)) SelectUpgrade(1);
@@ -195,6 +195,8 @@ public class StageLoop : MonoBehaviour
         moveSpeed = Mathf.Max(0f, m_base_enemy_speed * Mathf.Pow(m_speed_multiplier_per_stage, stage));
     }
 
+    public int DifficultyStage => GetDifficultyStage();
+
     public void RegisterEnemyKilled(int scoreReward, int experienceReward)
     {
         if (!IsPlaying || m_progression == null) return;
@@ -236,7 +238,7 @@ public class StageLoop : MonoBehaviour
         var choices = WeaponUpgradeSystem.GetRandomChoices(m_player.RuntimeWeapon, 3, m_upgrade_random);
         m_current_upgrade_count = choices.Count;
         m_upgrade_selection_locked = false;
-        m_accept_upgrade_input_frame = Time.frameCount + 1;
+        m_accept_upgrade_input_time = float.PositiveInfinity;
         if (m_upgrade_panel_animation != null) StopCoroutine(m_upgrade_panel_animation);
         m_upgrade_panel_animation = StartCoroutine(AnimateUpgradePanel());
         if (m_upgrade_header_text) m_upgrade_header_text.text = $"LEVEL UP\nLevel {Level}\nChoose one upgrade";
@@ -246,6 +248,7 @@ public class StageLoop : MonoBehaviour
             bool visible = index < choices.Count;
             m_upgrade_buttons[index].gameObject.SetActive(visible);
             if (!visible) continue;
+            m_upgrade_buttons[index].transform.localScale = Vector3.one * 0.84f;
 
             WeaponUpgradeChoice choice = choices[index];
             m_current_upgrade_choices[index] = choice;
@@ -262,14 +265,14 @@ public class StageLoop : MonoBehaviour
             colors.fadeDuration = 0.08f;
             m_upgrade_buttons[index].colors = colors;
             m_upgrade_buttons[index].image.color = rarityColor;
-            m_upgrade_buttons[index].interactable = true;
+            m_upgrade_buttons[index].interactable = false;
         }
     }
 
     private void SelectUpgrade(int index)
     {
         if (State != GameState.LevelUp || m_upgrade_selection_locked
-            || Time.frameCount < m_accept_upgrade_input_frame
+            || Time.unscaledTime < m_accept_upgrade_input_time
             || index < 0 || index >= m_current_upgrade_count || !m_upgrade_buttons[index].gameObject.activeSelf) return;
 
         m_upgrade_selection_locked = true;
@@ -364,6 +367,28 @@ public class StageLoop : MonoBehaviour
         }
         group.alpha = 1f;
         panel.localScale = Vector3.one;
+
+        for (int index = 0; index < m_current_upgrade_count; index++)
+        {
+            RectTransform card = m_upgrade_buttons[index].GetComponent<RectTransform>();
+            float cardElapsed = 0f;
+            const float cardDuration = 0.075f;
+            while (cardElapsed < cardDuration && State == GameState.LevelUp)
+            {
+                cardElapsed += Time.unscaledDeltaTime;
+                float progress = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(cardElapsed / cardDuration));
+                card.localScale = Vector3.one * Mathf.Lerp(0.84f, 1f, progress);
+                yield return null;
+            }
+            card.localScale = Vector3.one;
+        }
+
+        if (State == GameState.LevelUp)
+        {
+            m_accept_upgrade_input_time = Time.unscaledTime + 0.05f;
+            for (int index = 0; index < m_current_upgrade_count; index++)
+                m_upgrade_buttons[index].interactable = true;
+        }
         m_upgrade_panel_animation = null;
     }
 

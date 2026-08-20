@@ -59,7 +59,19 @@ public class EnemySpawner : MonoBehaviour
         Enemy enemy = Instantiate(m_prefab_enemy, m_spawn_parent);
         enemy.transform.position = position;
         m_stage_loop.GetCurrentEnemyStats(out int maxHp, out float moveSpeed);
-        enemy.Initialize(m_stage_loop, maxHp, moveSpeed, m_stage_loop.DefenseLineY);
+        enemy.Initialize(m_stage_loop, maxHp, moveSpeed, m_stage_loop.DefenseLineY,
+            RollArchetype(m_stage_loop.DifficultyStage));
+    }
+
+    private static Enemy.Archetype RollArchetype(int difficultyStage)
+    {
+        if (difficultyStage < 1) return Enemy.Archetype.Normal;
+        float roll = Random.value;
+        float bruteChance = difficultyStage >= 2 ? 0.35f : 0.25f;
+        float runnerChance = difficultyStage >= 2 ? 0.30f : 0.25f;
+        if (roll < bruteChance) return Enemy.Archetype.Brute;
+        if (roll < bruteChance + runnerChance) return Enemy.Archetype.Runner;
+        return Enemy.Archetype.Normal;
     }
 
     private Vector3 GetSpawnPosition()

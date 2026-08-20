@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
+    public enum Archetype { Normal, Brute, Runner }
+
     [Header("Combat")]
     [SerializeField, Min(1)] private int m_max_hp = 30;
     [SerializeField, Min(0)] private int m_score = 100;
@@ -24,6 +26,8 @@ public class Enemy : MonoBehaviour
     private Vector3 m_visual_base_scale;
     private float m_walk_phase;
     private Coroutine m_hit_feedback;
+    private Vector3 m_base_root_scale;
+    private Color m_visual_color = Color.white;
 
     public int ExperienceReward => m_experience;
 
@@ -31,12 +35,15 @@ public class Enemy : MonoBehaviour
     {
         m_current_hp = m_max_hp;
         m_is_settled = false;
+        m_base_root_scale = transform.localScale;
         SetupVisual();
     }
 
-    public void Initialize(StageLoop stageLoop, int maxHp, float moveSpeed, float defenseLineY)
+    public void Initialize(StageLoop stageLoop, int maxHp, float moveSpeed, float defenseLineY,
+        Archetype archetype = Archetype.Normal)
     {
         m_stage_loop = stageLoop;
+        ApplyArchetype(archetype, ref maxHp, ref moveSpeed);
         m_max_hp = Mathf.Max(1, maxHp);
         m_current_hp = m_max_hp;
         m_move_speed = Mathf.Max(0f, moveSpeed);
@@ -62,7 +69,7 @@ public class Enemy : MonoBehaviour
         m_current_hp -= damage;
         m_stage_loop.Feedback?.PlayHit(transform.position);
         if (m_hit_feedback != null) StopCoroutine(m_hit_feedback);
-        if (m_sprite_renderer) m_sprite_renderer.color = Color.white;
+        if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
         if (m_visual) m_visual.localScale = m_visual_base_scale;
         m_hit_feedback = StartCoroutine(HitFeedbackRoutine());
         if (m_current_hp <= 0) Die();
@@ -116,6 +123,32 @@ public class Enemy : MonoBehaviour
         m_walk_phase = Random.Range(0f, Mathf.PI * 2f);
     }
 
+    private void ApplyArchetype(Archetype archetype, ref int maxHp, ref float moveSpeed)
+    {
+        switch (archetype)
+        {
+            case Archetype.Brute:
+                maxHp = Mathf.CeilToInt(maxHp * 2f);
+                moveSpeed *= 0.68f;
+                transform.localScale = m_base_root_scale * 1.45f;
+                m_visual_color = new Color(0.72f, 0.40f, 0.32f);
+                m_walk_bob *= 0.75f;
+                break;
+            case Archetype.Runner:
+                maxHp = Mathf.Max(1, Mathf.CeilToInt(maxHp * 0.65f));
+                moveSpeed *= 1.55f;
+                transform.localScale = m_base_root_scale * 0.78f;
+                m_visual_color = new Color(0.78f, 1f, 0.48f);
+                m_walk_bob *= 1.15f;
+                break;
+            default:
+                transform.localScale = m_base_root_scale;
+                m_visual_color = Color.white;
+                break;
+        }
+        if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
+    }
+
     private void UpdateWalkVisual()
     {
         if (!m_visual) return;
@@ -129,7 +162,6 @@ public class Enemy : MonoBehaviour
     private IEnumerator HitFeedbackRoutine()
     {
         if (!m_sprite_renderer) yield break;
-        Color original = Color.white;
         m_sprite_renderer.color = new Color(1f, 0.42f, 0.30f);
         m_visual.localScale = m_visual_base_scale * 1.06f;
         float elapsed = 0f;
@@ -139,7 +171,7 @@ public class Enemy : MonoBehaviour
             elapsed += Time.deltaTime;
             yield return null;
         }
-        if (m_sprite_renderer) m_sprite_renderer.color = original;
+        if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
         if (m_visual) m_visual.localScale = m_visual_base_scale;
         m_hit_feedback = null;
     }
@@ -147,7 +179,7 @@ public class Enemy : MonoBehaviour
     private void OnDisable()
     {
         if (m_hit_feedback != null) StopCoroutine(m_hit_feedback);
-        if (m_sprite_renderer) m_sprite_renderer.color = Color.white;
+        if (m_sprite_renderer) m_sprite_renderer.color = m_visual_color;
     }
 
     private void OnValidate()
