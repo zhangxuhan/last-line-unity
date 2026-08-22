@@ -5,12 +5,16 @@ using UnityEngine;
 [DefaultExecutionOrder(100)]
 public class PlayerBullet : MonoBehaviour, IPoolable
 {
+    private const int PhysicsQueryBufferSize = 16;
+
     [Header("Lifetime")]
     [SerializeField, Min(0.1f)] private float m_max_lifetime = 3f;
     [SerializeField, Min(0.01f)] private float m_collision_radius = 0.12f;
     [SerializeField, Min(0f)] private float m_viewport_margin = 0.1f;
 
     private readonly HashSet<int> m_hit_enemy_ids = new HashSet<int>();
+    private readonly RaycastHit[] m_hit_buffer = new RaycastHit[PhysicsQueryBufferSize];
+    private readonly Collider[] m_overlap_buffer = new Collider[PhysicsQueryBufferSize];
     private Vector3 m_direction = Vector3.up;
     private float m_speed;
     private float m_damage;
@@ -68,15 +72,20 @@ public class PlayerBullet : MonoBehaviour, IPoolable
         Vector3 start = transform.position;
         if (ProcessOverlaps(start)) return;
 
-        RaycastHit[] hits = Physics.SphereCastAll(start, m_collision_radius, m_direction, distance, ~0, QueryTriggerInteraction.Collide);
-        System.Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
-
-        foreach (RaycastHit hit in hits)
+        int hitCount = Physics.SphereCastNonAlloc(start, m_collision_radius, m_direction, m_hit_buffer,
+            distance, ~0, QueryTriggerInteraction.Collide);
+        if (hitCount >= m_hit_buffer.Length)
         {
-            Enemy enemy = hit.collider.GetComponentInParent<Enemy>();
-            if (!enemy) continue;
-            transform.position = start + m_direction * hit.distance;
-            if (TryHit(enemy)) return;
+            // Preserve collision correctness in unusually dense casts instead of silently truncating hits.
+            RaycastHit[] overflowHits = Physics.SphereCastAll(start, m_collision_radius, m_direction,
+                distance, ~0, QueryTriggerInteraction.Collide);
+            Array.Sort(overflowHits, CompareHitDistance);
+            if (ProcessHits(overflowHits, overflowHits.Length, start)) return;
+        }
+        else
+        {
+            SortHitsByDistance(m_hit_buffer, hitCount);
+            if (ProcessHits(m_hit_buffer, hitCount, start)) return;
         }
 
         transform.position = start + m_direction * distance;
@@ -158,13 +167,60 @@ public class PlayerBullet : MonoBehaviour, IPoolable
 
     private bool ProcessOverlaps(Vector3 position)
     {
-        Collider[] overlaps = Physics.OverlapSphere(position, m_collision_radius, ~0, QueryTriggerInteraction.Collide);
-        foreach (Collider overlap in overlaps)
+        int overlapCount = Physics.OverlapSphereNonAlloc(position, m_collision_radius, m_overlap_buffer,
+            ~0, QueryTriggerInteraction.Collide);
+        if (overlapCount >= m_overlap_buffer.Length)
         {
-            Enemy enemy = overlap.GetComponentInParent<Enemy>();
+            // Saturation is uncommon, but the allocating fallback avoids changing gameplay in crowded waves.
+            Collider[] overflowOverlaps = Physics.OverlapSphere(position, m_collision_radius, ~0,
+                QueryTriggerInteraction.Collide);
+            return ProcessOverlapResults(overflowOverlaps, overflowOverlaps.Length);
+        }
+        return ProcessOverlapResults(m_overlap_buffer, overlapCount);
+    }
+
+    private bool ProcessHits(RaycastHit[] hits, int hitCount, Vector3 start)
+    {
+        for (int i = 0; i < hitCount; i++)
+        {
+            RaycastHit hit = hits[i];
+            Enemy enemy = hit.collider.GetComponentInParent<Enemy>();
+            if (!enemy) continue;
+            transform.position = start + m_direction * hit.distance;
+            if (TryHit(enemy)) return true;
+        }
+        return false;
+    }
+
+    private bool ProcessOverlapResults(Collider[] overlaps, int overlapCount)
+    {
+        for (int i = 0; i < overlapCount; i++)
+        {
+            Enemy enemy = overlaps[i].GetComponentInParent<Enemy>();
             if (enemy && TryHit(enemy)) return true;
         }
         return false;
+    }
+
+    private static void SortHitsByDistance(RaycastHit[] hits, int hitCount)
+    {
+        // The reusable buffer is deliberately small, so insertion sort avoids comparer/delegate allocations.
+        for (int i = 1; i < hitCount; i++)
+        {
+            RaycastHit value = hits[i];
+            int index = i - 1;
+            while (index >= 0 && hits[index].distance > value.distance)
+            {
+                hits[index + 1] = hits[index];
+                index--;
+            }
+            hits[index + 1] = value;
+        }
+    }
+
+    private static int CompareHitDistance(RaycastHit left, RaycastHit right)
+    {
+        return left.distance.CompareTo(right.distance);
     }
 
     private bool IsOutsideCamera()
