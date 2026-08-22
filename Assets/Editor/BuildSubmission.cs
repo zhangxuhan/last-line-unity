@@ -19,8 +19,8 @@ public static class BuildSubmission
         Directory.CreateDirectory(Path.GetDirectoryName(output) ?? "Build/Windows");
         PlayerSettings.companyName = "Zhang Xuhan";
         PlayerSettings.productName = "Last Line";
-        PlayerSettings.defaultScreenWidth = 1024;
-        PlayerSettings.defaultScreenHeight = 768;
+        PlayerSettings.defaultScreenWidth = 600;
+        PlayerSettings.defaultScreenHeight = 800;
         PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
         PlayerSettings.runInBackground = false;
 

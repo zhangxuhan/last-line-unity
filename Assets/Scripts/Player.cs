@@ -124,7 +124,10 @@ public class Player : MonoBehaviour
         Vector3 pointer = Input.mousePosition;
         pointer.x = Mathf.Clamp(pointer.x, pixelRect.xMin, pixelRect.xMax);
         pointer.y = Mathf.Clamp(pointer.y, pixelRect.yMin, pixelRect.yMax);
-        if (!TryGetPlanePoint(m_camera.ScreenPointToRay(pointer), plane, out Vector3 mouseWorld)) return;
+        Ray aimRay = m_camera.ScreenPointToRay(pointer);
+        GameFeedback feedback = StageLoop.Instance ? StageLoop.Instance.Feedback : null;
+        if (feedback) aimRay.origin -= feedback.CameraShakeWorldOffset;
+        if (!TryGetPlanePoint(aimRay, plane, out Vector3 mouseWorld)) return;
         Vector3 direction = mouseWorld - transform.position;
         direction.z = 0f;
         if (direction.sqrMagnitude > 0.0001f) m_aim_direction = direction.normalized;

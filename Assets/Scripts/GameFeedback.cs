@@ -23,6 +23,17 @@ public sealed class GameFeedback : MonoBehaviour
     private static Sprite[] s_tree_sprites;
     private static Sprite[] s_decor_sprites;
 
+    public Vector3 CameraShakeWorldOffset
+    {
+        get
+        {
+            if (!m_camera) return Vector3.zero;
+            Vector3 localOffset = m_camera.transform.localPosition - m_camera_home;
+            Transform parent = m_camera.transform.parent;
+            return parent ? parent.TransformVector(localOffset) : localOffset;
+        }
+    }
+
     public void Initialize(Camera gameCamera, Transform stageRoot, Transform uiRoot, Text defenseText, float defenseLineY)
     {
         ClearTransient();
