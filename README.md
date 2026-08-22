@@ -42,7 +42,7 @@ Open `WindowsBuild/LastLine.exe`. The build targets 64-bit Windows and starts in
 ## How to Open the Project
 
 1. Open Unity Hub.
-2. Add the `Project` folder from the submission package, or this repository root.
+2. Add the `UnityProject` folder from the submission package, or this repository root.
 3. Open it with Unity `6000.3.15f1`.
 4. Open `Assets/Scenes/SampleScene.unity` and enter Play Mode.
 
@@ -54,19 +54,20 @@ Unity `6000.3.15f1`.
 
 Visual and audio assets are credited in `THIRD_PARTY_NOTICES.md`. The included Kenney assets and the OpenGameArt music track are distributed under CC0 1.0. No third-party gameplay code is used.
 
-## Balance Reference
+## Code Structure
 
-- Weapon: 10 damage, 0.35-second fire interval, 10 projectile speed, one projectile, no penetration, 8-degree spread step
-- Enemy: 30 HP, 0.9 movement speed, 100 score, 1 EXP
-- Spawn interval: 1.05 seconds initially, with a 0.32-second floor
-- Difficulty: every 30 seconds of survival corresponds to approximately 1.17x HP, 1.06x speed, and 0.90x spawn interval
-- Waves: budget starts at 12, grows by 5 per wave, and is capped by the configured active-enemy limits
-- Level requirements: 5, 8, 12, 17, then the previous requirement multiplied by 1.3 and rounded up
+- `StageLoop` coordinates the run lifecycle and transitions between title, play, level-up, and game-over states.
+- `StageSession` owns score, survival time, progression, and state notifications without depending on scene UI.
+- `DefenseController` contains breach and defensive-mine rules, while `StageHudPresenter` updates the HUD from session events.
+- `GameBalanceConfig` is a `ScriptableObject` used as the single runtime source for weapon, enemy, wave, rarity, and progression values.
+- `WeaponRuntimeState` applies upgrades and enforces caps separately from player input and projectile spawning.
+- `ComponentPool<T>` provides reusable enemies, bullets, and short-lived effects through a small `IPoolable` contract.
 
-## Design Notes
+## Engineering Notes
 
-- The three-breach rule makes failure readable while allowing recovery from individual mistakes.
-- Level-up choices pause the game so the player can compare exact value changes without losing ground.
-- Damage, speed, spread, penetration, burst, critical, and automatic attacks support different firing patterns rather than a single fixed build.
-- Continuous difficulty scaling avoids abrupt jumps at 30-second boundaries while preserving the intended pressure curve.
-- Hits, kills, defensive mine detonations, breaches, and game over use distinct visual and audio feedback.
+- State and presentation are separated so restarting a run resets gameplay data and scene objects without rebuilding the UI.
+- Upgrade selection pauses gameplay and consumes queued level-ups one at a time, including cases where one reward crosses several levels.
+- Projectile collision uses non-allocating sphere casts and overlap queries. Each projectile tracks enemies already hit so penetration cannot damage one target twice.
+- Enemy spawning supports a fixed debug seed for reproducible runs, while normal play creates a new seed for each session.
+- Camera shake is treated as a visual offset. Aiming and viewport calculations use the stable camera position, then transient feedback restores the camera after interruption or restart.
+- Runtime-created objects and event subscriptions are explicitly released when returning to the title or starting another run.
