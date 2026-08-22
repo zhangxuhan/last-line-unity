@@ -26,6 +26,7 @@ MonoBehaviour:
     budgetGrowthPerWave: 5
     maximumActiveEnemies: 24
     restSeconds: 3
+    useFixedDebugSeed: 0
     debugSeed: 1337
     exponentialStartWave: 5
     budgetMultiplierPerWave: 1.65

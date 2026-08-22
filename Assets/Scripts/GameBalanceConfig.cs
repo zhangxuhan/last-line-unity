@@ -24,6 +24,8 @@ public sealed class GameBalanceConfig : ScriptableObject
         public int budgetGrowthPerWave = 5;
         public int maximumActiveEnemies = 24;
         public float restSeconds = 3f;
+        [Tooltip("Use Debug Seed for repeatable test runs. Leave disabled for normal play.")]
+        public bool useFixedDebugSeed;
         public int debugSeed = 1337;
         [Min(1)] public int exponentialStartWave = 5;
         [Min(1f)] public float budgetMultiplierPerWave = 1.65f;

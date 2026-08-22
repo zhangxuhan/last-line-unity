@@ -19,6 +19,7 @@ public class EnemySpawner : MonoBehaviour
     private System.Random m_random;
     private float m_last_spawn_x;
     private bool m_has_last_spawn;
+    public int CurrentSeed { get; private set; }
 
     public void Initialize(StageLoop stageLoop, Camera gameCamera, Transform spawnParent)
     {
@@ -26,9 +27,20 @@ public class EnemySpawner : MonoBehaviour
         m_stage_loop = stageLoop;
         m_camera = gameCamera ? gameCamera : Camera.main;
         m_spawn_parent = spawnParent;
-        m_random = new System.Random(GameBalanceConfig.Current.waves.debugSeed);
+        CurrentSeed = CreateRunSeed(GameBalanceConfig.Current.waves);
+        m_random = new System.Random(CurrentSeed);
+        Debug.Log($"Enemy run seed: {CurrentSeed}", this);
         m_has_last_spawn = false;
         m_spawn_coroutine = StartCoroutine(MainCoroutine());
+    }
+
+    private static int CreateRunSeed(GameBalanceConfig.WaveTable waves)
+    {
+        if (waves.useFixedDebugSeed) return waves.debugSeed;
+        unchecked
+        {
+            return Guid.NewGuid().GetHashCode() ^ Environment.TickCount ^ (int)DateTime.UtcNow.Ticks;
+        }
     }
 
     public void StopRunning()

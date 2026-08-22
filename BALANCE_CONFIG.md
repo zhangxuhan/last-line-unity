@@ -9,7 +9,7 @@
 ## 配置分区
 
 - **Difficulty**：随生存时间增长的敌人生命、速度和生成间隔。
-- **Waves**：首波预算、每波预算增长、同屏上限、波间休息、固定 Debug Seed，以及第 5 波后的指数压力曲线。
+- **Waves**：首波预算、每波预算增长、同屏上限、波间休息、随机/固定 Debug Seed，以及第 5 波后的指数压力曲线。
 - **Base Weapon**：初始伤害、射击间隔、弹速、弹道数、穿透和散射角。
 - **Progression**：各等级所需经验与 5 级后的经验倍率。
 - **Upgrade Rules**：射速/弹道/穿透上限、暴击倍率、连射节奏和闪电间隔。
@@ -25,5 +25,6 @@
 - `Spawn Interval Multiplier Per Stage` 越小，后期生成越快。
 - 敌人的 `Wave Weight Start/End` 是解锁波次区间内的线性权重；区间外保持起点或终点值。
 - `Minimum Rarity` 会阻止技能以更低稀有度出现。
+- 正常游玩保持 `Use Fixed Debug Seed` 关闭；需要复现敌人顺序和位置时再开启，并填写 `Debug Seed`。
 - 修改数组中的枚举键时，不要保留两个相同的 Enemy、Rarity 或 Upgrade Type 条目。
 - 视觉布局、音量和纯表现参数仍保留在对应 Scene/Prefab 上，不属于战斗数值表。
