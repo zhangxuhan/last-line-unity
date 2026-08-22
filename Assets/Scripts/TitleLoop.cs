@@ -490,9 +490,12 @@ public sealed class TitleButtonFeedback : MonoBehaviour, IPointerEnterHandler, I
 {
     private Image m_image;
     private RectTransform m_rect;
+    private Outline m_outline;
     private Color m_base_color;
     private Vector3 m_target_scale = Vector3.one;
     private bool m_emphasis;
+    private bool m_pointer_inside;
+    private bool m_pointer_down;
 
     public void Initialize(Image image, RectTransform rect, Color baseColor, bool emphasis)
     {
@@ -500,33 +503,56 @@ public sealed class TitleButtonFeedback : MonoBehaviour, IPointerEnterHandler, I
         m_rect = rect;
         m_base_color = baseColor;
         m_emphasis = emphasis;
+        m_outline = GetComponent<Outline>();
     }
 
     private void Update()
     {
         if (!m_rect || !m_image) return;
-        m_rect.localScale = Vector3.Lerp(m_rect.localScale, m_target_scale, Time.unscaledDeltaTime * 14f);
-        if (m_emphasis && m_target_scale == Vector3.one)
+        Vector3 desiredScale = m_target_scale;
+        if (m_emphasis && !m_pointer_inside && !m_pointer_down)
         {
-            float pulse = 0.5f + Mathf.Sin(Time.unscaledTime * 3.2f) * 0.5f;
-            m_image.color = Color.Lerp(m_base_color, Color.Lerp(m_base_color, Color.white, 0.12f), pulse);
+            float pulse = 0.5f + Mathf.Sin(Time.unscaledTime * 2.8f) * 0.5f;
+            desiredScale = Vector3.one * Mathf.Lerp(1f, 1.075f, pulse);
+            m_image.color = Color.Lerp(m_base_color, Color.Lerp(m_base_color, Color.white, 0.30f), pulse);
+            if (m_outline)
+            {
+                Color glow = Color.Lerp(new Color(0.10f, 0.72f, 0.88f, 0.70f), Color.white, pulse * 0.45f);
+                glow.a = Mathf.Lerp(0.68f, 1f, pulse);
+                m_outline.effectColor = glow;
+                float distance = Mathf.Lerp(2f, 5f, pulse);
+                m_outline.effectDistance = new Vector2(distance, -distance);
+            }
         }
+        m_rect.localScale = Vector3.Lerp(m_rect.localScale, desiredScale, Time.unscaledDeltaTime * 12f);
     }
 
     public void OnPointerEnter(PointerEventData eventData)
     {
-        m_target_scale = Vector3.one * 1.045f;
-        if (m_image) m_image.color = Color.Lerp(m_base_color, Color.white, 0.20f);
+        m_pointer_inside = true;
+        m_target_scale = Vector3.one * 1.085f;
+        if (m_image) m_image.color = Color.Lerp(m_base_color, Color.white, 0.32f);
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        m_pointer_inside = false;
+        m_pointer_down = false;
         m_target_scale = Vector3.one;
         if (m_image) m_image.color = m_base_color;
     }
 
-    public void OnPointerDown(PointerEventData eventData) => m_target_scale = Vector3.one * 0.97f;
-    public void OnPointerUp(PointerEventData eventData) => OnPointerEnter(eventData);
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        m_pointer_down = true;
+        m_target_scale = Vector3.one * 0.96f;
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        m_pointer_down = false;
+        if (m_pointer_inside) OnPointerEnter(eventData);
+    }
 }
 
 public static class LocalLeaderboard
