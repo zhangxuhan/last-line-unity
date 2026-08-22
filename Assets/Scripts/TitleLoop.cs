@@ -126,6 +126,16 @@ public class TitleLoop : MonoBehaviour
         subtitle.rectTransform.sizeDelta = new Vector2(620f, 42f);
         subtitle.fontStyle = FontStyle.Bold;
 
+        Text premise = CreateLabel(template, m_ui_title, "SURVIVE THE HORDE AS LONG AS YOU CAN!", 27,
+            new Color(1f, 0.78f, 0.28f));
+        premise.name = "GamePremise";
+        premise.rectTransform.anchorMin = new Vector2(0.5f, 1f);
+        premise.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+        premise.rectTransform.pivot = new Vector2(0.5f, 1f);
+        premise.rectTransform.anchoredPosition = new Vector2(0f, -250f);
+        premise.rectTransform.sizeDelta = new Vector2(650f, 52f);
+        premise.fontStyle = FontStyle.Bold;
+
         GameObject missionPanel = new GameObject("MissionPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         RectTransform missionRect = missionPanel.GetComponent<RectTransform>();
         missionRect.SetParent(m_ui_title, false);
@@ -154,7 +164,7 @@ public class TitleLoop : MonoBehaviour
             instructions.text = "<color=#59D9EE><b>MOVE</b></color>     A / D  or  ARROW KEYS\n" +
                 "<color=#59D9EE><b>AIM</b></color>        MOUSE\n" +
                 "<color=#59D9EE><b>FIRE</b></color>       HOLD LEFT MOUSE  or  AUTO FIRE\n\n" +
-                "<color=#FFFFFF>Stop every enemy before the defense line falls.</color>";
+                "<color=#FFFFFF>Defend the line. Survive as long as possible.</color>";
             instructions.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             instructions.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             instructions.rectTransform.anchoredPosition = new Vector2(0f, 24f);
@@ -167,7 +177,7 @@ public class TitleLoop : MonoBehaviour
         }
 
         CreateMenuButton(template, m_ui_title, "StartButton", new Vector2(0f, -164f), new Vector2(360f, 72f),
-            "▶   DEPLOY", new Color(0.04f, 0.64f, 0.78f, 1f), RequestStart);
+            "▶   PLAY", new Color(0.04f, 0.64f, 0.78f, 1f), RequestStart);
 
         Text shortcut = CreateLabel(template, m_ui_title, "SPACE  //  QUICK START", 16, new Color(0.55f, 0.76f, 0.82f));
         shortcut.name = "StartShortcut";
@@ -304,7 +314,7 @@ public class TitleLoop : MonoBehaviour
         header.rectTransform.anchorMin = new Vector2(0.05f, 0.84f);
         header.rectTransform.anchorMax = new Vector2(0.95f, 0.98f);
 
-        Text columns = CreateLabel(template, panelRect, "RANKING   /   SCORE   /   TIME   /   LEVEL", 17,
+        Text columns = CreateLabel(template, panelRect, "RANK   /   SCORE   /   TIME   /   LEVEL", 17,
             new Color(0.52f, 0.78f, 0.86f));
         columns.rectTransform.anchorMin = new Vector2(0.08f, 0.77f);
         columns.rectTransform.anchorMax = new Vector2(0.92f, 0.85f);

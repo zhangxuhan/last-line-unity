@@ -335,7 +335,7 @@ public class StageLoop : MonoBehaviour
         m_accept_upgrade_input_time = float.PositiveInfinity;
         if (m_upgrade_panel_animation != null) StopCoroutine(m_upgrade_panel_animation);
         m_upgrade_panel_animation = StartCoroutine(AnimateUpgradePanel());
-        if (m_upgrade_header_text) m_upgrade_header_text.text = $"LEVEL UP\nLevel {Level}\nChoose one upgrade";
+        if (m_upgrade_header_text) m_upgrade_header_text.text = $"LEVEL UP\nLEVEL {Level}\nCHOOSE ONE UPGRADE";
 
         for (int index = 0; index < m_upgrade_buttons.Length; index++)
         {
@@ -1019,8 +1019,8 @@ public class StageLoop : MonoBehaviour
         WeaponRuntimeState weapon = m_player.RuntimeWeapon;
         m_skills_content_text.text =
             $"<color=#7EDDEC><b>WEAPON STATUS</b></color>\n" +
-            $"DMG {weapon.Damage:0.0}   RATE {weapon.FireInterval:0.00}s   CRIT {weapon.CriticalChance * 100f:0}%   " +
-            $"SHOT {weapon.ProjectileCount}   PIERCE {weapon.PenetrationCount}   BURST {weapon.BurstCount}";
+            $"DMG {weapon.Damage:0.0}   INTERVAL {weapon.FireInterval:0.00}s   CRIT {weapon.CriticalChance * 100f:0}%   " +
+            $"PROJECTILES {weapon.ProjectileCount}   PIERCE {weapon.PenetrationCount}   BURST {weapon.BurstCount}";
         bool hasSkills = false;
         foreach (WeaponUpgradeType type in Enum.GetValues(typeof(WeaponUpgradeType)))
         {

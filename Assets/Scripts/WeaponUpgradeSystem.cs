@@ -232,13 +232,13 @@ public static class WeaponUpgradeSystem
             case WeaponUpgradeType.ProjectileSpeed:
                 return new WeaponUpgradeOption(choice, "High-Velocity Rounds", PowerDescription(weapon.GetScaledPowerMultiplier(choice), "projectile speed"), $"{Format(weapon.ProjectileSpeed)} -> {Format(weapon.GetNextFloatValue(choice))}");
             case WeaponUpgradeType.ProjectileCount:
-                return new WeaponUpgradeOption(choice, "Multishot", "Fire 1 additional projectile. Rarity does not increase this amount.", $"{weapon.ProjectileCount} -> {weapon.GetNextIntValue(choice)} projectiles");
+                return new WeaponUpgradeOption(choice, "Multishot", "Add 1 projectile per volley. Always +1.", $"{weapon.ProjectileCount} -> {weapon.GetNextIntValue(choice)} projectiles");
             case WeaponUpgradeType.Penetration:
-                return new WeaponUpgradeOption(choice, "Piercing Rounds", $"Penetrate {WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} additional enemy(s).", $"{weapon.PenetrationCount} -> {weapon.GetNextIntValue(choice)} extra penetration");
+                return new WeaponUpgradeOption(choice, "Piercing Rounds", $"Gain +{WeaponRuntimeState.GetDiscreteIncrease(choice.Rarity)} penetration.", $"{weapon.PenetrationCount} -> {weapon.GetNextIntValue(choice)} extra penetration");
             case WeaponUpgradeType.CriticalChance:
-                return new WeaponUpgradeOption(choice, "Critical Rounds", "Shots can deal double damage.", $"{weapon.CriticalChance * 100f:0}% -> {weapon.GetNextFloatValue(choice) * 100f:0}% crit chance");
+                return new WeaponUpgradeOption(choice, "Critical Rounds", $"Shots can deal {weapon.CriticalMultiplier:0.#}× damage.", $"{weapon.CriticalChance * 100f:0}% -> {weapon.GetNextFloatValue(choice) * 100f:0}% crit chance");
             case WeaponUpgradeType.BurstFire:
-                return new WeaponUpgradeOption(choice, "Burst Module", "Add 1 rapid volley per attack. Rarity does not increase this amount.", $"{weapon.BurstCount} -> {weapon.GetNextIntValue(choice)} volleys");
+                return new WeaponUpgradeOption(choice, "Burst Module", "Add 1 rapid volley per attack. Always +1.", $"{weapon.BurstCount} -> {weapon.GetNextIntValue(choice)} volleys");
             case WeaponUpgradeType.Lightning:
                 return new WeaponUpgradeOption(choice, "Auto Lightning", $"Gain {WeaponRuntimeState.GetAbilityIncrease(choice.Rarity)} lightning level.", $"Level {weapon.LightningLevel} -> {weapon.GetNextIntValue(choice)}");
             default: throw new ArgumentOutOfRangeException(nameof(choice));
