@@ -116,16 +116,6 @@ public class TitleLoop : MonoBehaviour
 
         CreateTitleAccent(template, m_ui_title);
 
-        Text subtitle = CreateLabel(template, m_ui_title, "TACTICAL SURVIVAL  //  DEFENSE PROTOCOL 01", 19,
-            new Color(0.35f, 0.88f, 0.96f));
-        subtitle.name = "Subtitle";
-        subtitle.rectTransform.anchorMin = new Vector2(0.5f, 1f);
-        subtitle.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-        subtitle.rectTransform.pivot = new Vector2(0.5f, 1f);
-        subtitle.rectTransform.anchoredPosition = new Vector2(0f, -210f);
-        subtitle.rectTransform.sizeDelta = new Vector2(620f, 42f);
-        subtitle.fontStyle = FontStyle.Bold;
-
         Text premise = CreateLabel(template, m_ui_title, "SURVIVE THE HORDE AS LONG AS YOU CAN!", 27,
             new Color(1f, 0.78f, 0.28f));
         premise.name = "GamePremise";
@@ -147,16 +137,6 @@ public class TitleLoop : MonoBehaviour
         Outline missionOutline = missionPanel.AddComponent<Outline>();
         missionOutline.effectColor = new Color(0.12f, 0.48f, 0.60f, 0.85f);
         missionOutline.effectDistance = new Vector2(2f, -2f);
-
-        Text missionHeader = CreateLabel(template, missionRect, "FIELD BRIEFING", 16,
-            new Color(0.32f, 0.88f, 0.96f));
-        missionHeader.rectTransform.anchorMin = new Vector2(0f, 1f);
-        missionHeader.rectTransform.anchorMax = new Vector2(0f, 1f);
-        missionHeader.rectTransform.pivot = new Vector2(0f, 1f);
-        missionHeader.rectTransform.anchoredPosition = new Vector2(22f, -12f);
-        missionHeader.rectTransform.sizeDelta = new Vector2(210f, 30f);
-        missionHeader.alignment = TextAnchor.MiddleLeft;
-        missionHeader.fontStyle = FontStyle.Bold;
 
         Text instructions = m_ui_title.Find("PressStart")?.GetComponent<Text>();
         if (instructions)
