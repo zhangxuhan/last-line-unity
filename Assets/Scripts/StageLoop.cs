@@ -122,39 +122,30 @@ public class StageLoop : MonoBehaviour
     private readonly Image[] m_upgrade_button_icons = new Image[3];
     private readonly Outline[] m_upgrade_button_outlines = new Outline[3];
     private readonly WeaponUpgradeChoice[] m_current_upgrade_choices = new WeaponUpgradeChoice[3];
-    private PlayerProgression m_progression;
+    private StageSession m_session;
+    private DefenseController m_defense;
+    private StageHudPresenter m_hud;
     private Player m_player;
     private System.Random m_upgrade_random;
     private int m_current_upgrade_count;
     private float m_accept_upgrade_input_time;
     private bool m_upgrade_selection_locked;
-    private int m_game_score;
-    private int m_breach_count;
-    private float m_survival_time;
-    private bool[] m_defense_bombs_active;
-    private GameObject[] m_defense_bomb_visuals;
-    private float m_bomb_lane_min_x;
-    private float m_bomb_lane_width;
-    private float m_bomb_trigger_y;
-    private bool m_resolving_area_attack;
     private Sprite[] m_upgrade_icons;
     private static Sprite s_tick_sprite;
     private static Material s_upgrade_icon_material;
-    private static Sprite s_defense_mine_sprite;
-    private static Sprite s_defense_mine_glow_sprite;
 
-    public GameState State { get; private set; } = GameState.Title;
-    public bool IsPlaying => State == GameState.Playing;
+    public GameState State => m_session != null ? m_session.State : GameState.Title;
+    public bool IsPlaying => m_session != null && m_session.IsPlaying;
     public GameFeedback Feedback => m_feedback;
     public float DefenseLineY => GetCameraBottom() + m_defense_bottom_offset;
-    public float SurvivalTime => m_survival_time;
-    public int Level => m_progression != null ? m_progression.Level : PlayerProgression.InitialLevel;
-    public int CurrentExperience => m_progression != null ? m_progression.CurrentExperience : 0;
-    public int RequiredExperience => m_progression != null
-        ? m_progression.RequiredExperience
+    public float SurvivalTime => m_session != null ? m_session.SurvivalTime : 0f;
+    public int Level => m_session != null ? m_session.Level : PlayerProgression.InitialLevel;
+    public int CurrentExperience => m_session != null ? m_session.CurrentExperience : 0;
+    public int RequiredExperience => m_session != null
+        ? m_session.RequiredExperience
         : PlayerProgression.InitialExperienceRequirement;
-    public int KillCount => m_progression != null ? m_progression.KillCount : 0;
-    public int PendingUpgradeCount => m_progression != null ? m_progression.PendingUpgradeCount : 0;
+    public int KillCount => m_session != null ? m_session.KillCount : 0;
+    public int PendingUpgradeCount => m_session != null ? m_session.PendingUpgradeCount : 0;
     public event Action<int> OnLevelUp;
     public float CurrentSpawnInterval
     {
@@ -171,12 +162,19 @@ public class StageLoop : MonoBehaviour
     {
         Instance = this;
         Time.timeScale = 1f;
-        m_progression = new PlayerProgression();
+        m_session = new StageSession();
+        m_defense = new DefenseController(this);
         m_upgrade_random = new System.Random();
         if (!m_game_camera) m_game_camera = Camera.main;
         if (m_game_camera && !m_game_camera.GetComponent<PortraitCameraViewport>())
             m_game_camera.gameObject.AddComponent<PortraitCameraViewport>();
         CreateRuntimeUi();
+        m_hud = new StageHudPresenter(m_stage_ui_root, m_stage_score_text, m_defense_text, m_time_text,
+            m_level_text, m_wave_text, m_wave_hint_text, m_experience_text, m_game_over_text,
+            m_upgrade_panel, m_skills_panel, m_experience_fill_rect, m_experience_percent_text,
+            m_skills_content_text, m_skills_empty_text, m_skill_cells, m_skill_cell_names,
+            m_skill_cell_values, m_skill_cell_icons, GetUpgradeIcon);
+        m_hud.Bind(m_session, m_defense);
         m_feedback = GetComponent<GameFeedback>();
         if (!m_feedback) m_feedback = gameObject.AddComponent<GameFeedback>();
         SetState(GameState.Title);
@@ -196,9 +194,7 @@ public class StageLoop : MonoBehaviour
         {
             if (State == GameState.Playing)
             {
-                m_survival_time += Time.deltaTime;
-                RefreshHud();
-
+                m_session.TickPlaying(Time.deltaTime);
                 if (Input.GetKeyDown(KeyCode.Tab))
                 {
                     OpenSkillsPanel();
@@ -255,15 +251,10 @@ public class StageLoop : MonoBehaviour
         m_feedback.StopAudio();
         m_feedback.Initialize(m_game_camera, m_stage_transform, m_stage_ui_root.transform, m_defense_text, DefenseLineY);
         m_feedback.PlayGameplayMusic();
-        CreateDefenseBombs();
-
-        m_game_score = 0;
-        m_breach_count = 0;
-        m_survival_time = 0f;
-        m_progression.Reset();
+        m_session.ResetRun();
+        m_defense.Reset(m_game_camera, m_stage_transform, DefenseLineY, m_max_breaches, m_defense_bomb_count);
         SetState(GameState.Playing);
-        RefreshHud();
-        RefreshProgressionUi();
+        m_hud.RefreshAll();
         SetWaveStatus(0, 0, "PREPARING WAVE 1");
 
         m_player = Instantiate(m_prefab_player, m_stage_transform);
@@ -287,31 +278,24 @@ public class StageLoop : MonoBehaviour
 
     public void SetWaveStatus(int wave, int budget, string hint)
     {
-        if (m_wave_text) m_wave_text.text = wave > 0 ? $"WAVE {wave:00}  •  BUDGET {budget}" : "WAVE --";
-        if (m_wave_hint_text) m_wave_hint_text.text = hint ?? string.Empty;
+        m_hud.SetWaveStatus(wave, budget, hint);
     }
 
     public void RegisterEnemyKilled(int scoreReward, int experienceReward)
     {
-        if (!IsPlaying || m_progression == null) return;
+        if (!IsPlaying || m_session == null) return;
 
-        if (scoreReward > 0)
-            m_game_score = (int)Math.Min((long)m_game_score + scoreReward, int.MaxValue);
-
-        int previousLevel = m_progression.Level;
-        int levelUpCount = m_progression.RegisterKill(experienceReward);
-        RefreshHud();
-        RefreshProgressionUi();
-
+        int previousLevel = m_session.Level;
+        int levelUpCount = m_session.RegisterKill(scoreReward, experienceReward);
         for (int index = 1; index <= levelUpCount; index++)
             OnLevelUp?.Invoke(previousLevel + index);
 
-        if (levelUpCount > 0 && IsPlaying && !m_resolving_area_attack) EnterLevelUp();
+        if (levelUpCount > 0 && IsPlaying && !m_defense.IsResolvingAreaAttack) EnterLevelUp();
     }
 
     public bool TryConsumePendingUpgrade()
     {
-        return m_progression != null && m_progression.TryConsumePendingUpgrade();
+        return m_session != null && m_session.TryConsumePendingUpgrade();
     }
 
     private void EnterLevelUp()
@@ -411,132 +395,16 @@ public class StageLoop : MonoBehaviour
 
     public void RegisterBreach(Enemy enemy)
     {
-        if (!IsPlaying || !enemy) return;
-
-        m_breach_count = Mathf.Min(m_max_breaches, m_breach_count + 1);
-        RefreshHud();
-        if (m_breach_count >= m_max_breaches) EnterGameOver();
+        bool gameOver = m_defense.RegisterBreach(enemy);
+        m_hud.RefreshDefense();
+        if (gameOver) EnterGameOver();
     }
 
     public bool TryTriggerDefenseBomb(Enemy triggeringEnemy)
     {
-        if (!IsPlaying || !triggeringEnemy || m_defense_bombs_active == null
-            || triggeringEnemy.transform.position.y > m_bomb_trigger_y || m_bomb_lane_width <= 0f) return false;
-
-        int lane = Mathf.FloorToInt((triggeringEnemy.transform.position.x - m_bomb_lane_min_x) / m_bomb_lane_width);
-        lane = Mathf.Clamp(lane, 0, m_defense_bombs_active.Length - 1);
-        if (!m_defense_bombs_active[lane]) return false;
-
-        m_defense_bombs_active[lane] = false;
-        if (m_defense_bomb_visuals != null && m_defense_bomb_visuals[lane])
-            Destroy(m_defense_bomb_visuals[lane]);
-
-        float laneMin = m_bomb_lane_min_x + lane * m_bomb_lane_width;
-        float laneMax = laneMin + m_bomb_lane_width;
-        float centerX = (laneMin + laneMax) * 0.5f;
-        m_feedback.PlayBombDetonation(centerX, m_bomb_lane_width, m_bomb_trigger_y);
-        m_resolving_area_attack = true;
-        Enemy.ClearVerticalLane(this, laneMin, laneMax);
-        m_resolving_area_attack = false;
-        if (IsPlaying && PendingUpgradeCount > 0) EnterLevelUp();
-        return true;
-    }
-
-    private void CreateDefenseBombs()
-    {
-        if (!m_game_camera || !m_stage_transform) return;
-        float distance = Mathf.Abs(m_game_camera.transform.position.z);
-        Vector3 left = m_game_camera.ViewportToWorldPoint(new Vector3(0f, 0.5f, distance));
-        Vector3 right = m_game_camera.ViewportToWorldPoint(new Vector3(1f, 0.5f, distance));
-        m_bomb_lane_min_x = Mathf.Min(left.x, right.x);
-        m_bomb_lane_width = Mathf.Abs(right.x - left.x) / m_defense_bomb_count;
-        m_bomb_trigger_y = DefenseLineY + 0.34f;
-        m_defense_bombs_active = new bool[m_defense_bomb_count];
-        m_defense_bomb_visuals = new GameObject[m_defense_bomb_count];
-
-        for (int lane = 0; lane < m_defense_bomb_count; lane++)
-        {
-            m_defense_bombs_active[lane] = true;
-            float x = m_bomb_lane_min_x + (lane + 0.5f) * m_bomb_lane_width;
-            GameObject bomb = new GameObject($"DefenseBomb{lane + 1}");
-            bomb.transform.SetParent(m_stage_transform, false);
-            bomb.transform.position = new Vector3(x, m_bomb_trigger_y, -0.05f);
-            SpriteRenderer renderer = bomb.AddComponent<SpriteRenderer>();
-            renderer.sprite = GetDefenseMineSprite();
-            renderer.color = Color.white;
-            renderer.sortingOrder = 3;
-
-            GameObject haloObject = new GameObject("RedWarningGlow", typeof(SpriteRenderer));
-            haloObject.transform.SetParent(bomb.transform, false);
-            SpriteRenderer halo = haloObject.GetComponent<SpriteRenderer>();
-            halo.sprite = GetDefenseMineGlowSprite();
-            halo.color = new Color(1f, 0.025f, 0.01f, 0.52f);
-            halo.sortingOrder = 2;
-            haloObject.transform.localScale = Vector3.one * 2.1f;
-
-            DefenseMinePulse pulse = bomb.AddComponent<DefenseMinePulse>();
-            pulse.Initialize(renderer, halo, lane * 1.17f);
-            bomb.transform.localScale = Vector3.one * 0.30f;
-            m_defense_bomb_visuals[lane] = bomb;
-        }
-    }
-
-    private static Sprite GetDefenseMineSprite()
-    {
-        if (s_defense_mine_sprite) return s_defense_mine_sprite;
-        const int size = 64;
-        Vector2 center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
-        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        texture.name = "RuntimeDefenseMine";
-        texture.filterMode = FilterMode.Bilinear;
-        Color[] pixels = new Color[size * size];
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                Vector2 offset = new Vector2(x, y) - center;
-                float radius = offset.magnitude;
-                float angle = Mathf.Atan2(offset.y, offset.x);
-                float spoke = Mathf.Abs(Mathf.Sin(angle * 4f));
-                Color color = Color.clear;
-                if (radius <= 25f) color = radius > 21f ? new Color(0.10f, 0.22f, 0.29f, 1f) : new Color(0.035f, 0.09f, 0.14f, 1f);
-                if (radius > 24f && radius <= 30f && spoke < 0.30f) color = new Color(0.08f, 0.17f, 0.23f, 1f);
-                if (radius >= 10f && radius <= 12f) color = new Color(0.12f, 0.72f, 0.82f, 1f);
-                if (radius <= 5f) color = new Color(0.16f, 0.92f, 1f, 1f);
-                if (radius >= 17f && radius <= 19f && spoke < 0.18f) color = new Color(0.95f, 0.42f, 0.07f, 1f);
-                pixels[y * size + x] = color;
-            }
-        }
-        texture.SetPixels(pixels);
-        texture.Apply(false, true);
-        s_defense_mine_sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
-        return s_defense_mine_sprite;
-    }
-
-    private static Sprite GetDefenseMineGlowSprite()
-    {
-        if (s_defense_mine_glow_sprite) return s_defense_mine_glow_sprite;
-        const int size = 96;
-        float center = (size - 1) * 0.5f;
-        float maximumRadius = center;
-        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        texture.name = "RuntimeDefenseMineGlow";
-        texture.filterMode = FilterMode.Bilinear;
-        Color[] pixels = new Color[size * size];
-        for (int y = 0; y < size; y++)
-        {
-            for (int x = 0; x < size; x++)
-            {
-                float radius = Vector2.Distance(new Vector2(x, y), new Vector2(center, center)) / maximumRadius;
-                float alpha = radius >= 1f ? 0f : Mathf.Pow(1f - radius, 2.2f);
-                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
-            }
-        }
-        texture.SetPixels(pixels);
-        texture.Apply(false, true);
-        s_defense_mine_glow_sprite = Sprite.Create(texture, new Rect(0f, 0f, size, size),
-            new Vector2(0.5f, 0.5f), size);
-        return s_defense_mine_glow_sprite;
+        bool triggered = m_defense.TryTriggerBomb(triggeringEnemy, m_feedback);
+        if (triggered && IsPlaying && PendingUpgradeCount > 0) EnterLevelUp();
+        return triggered;
     }
 
     private void EnterGameOver()
@@ -544,13 +412,13 @@ public class StageLoop : MonoBehaviour
         if (!IsPlaying) return;
 
         Time.timeScale = 1f;
-        LocalLeaderboard.Record(m_game_score, m_survival_time, Level);
-        m_progression.DiscardPendingUpgrades();
+        LocalLeaderboard.Record(m_session.Score, m_session.SurvivalTime, Level);
+        m_session.DiscardPendingUpgrades();
         SetState(GameState.GameOver);
         m_feedback.PlayGameOver();
         CleanupStageObjects();
-        RefreshHud();
-        RefreshGameOverText();
+        m_hud.RefreshAll();
+        m_hud.RefreshGameOver();
     }
 
     private void ReturnToTitle()
@@ -560,10 +428,7 @@ public class StageLoop : MonoBehaviour
         m_feedback.ClearTransient();
         m_feedback.StopAudio();
         SetState(GameState.Title);
-        m_game_score = 0;
-        m_breach_count = 0;
-        m_survival_time = 0f;
-        m_progression?.Reset();
+        m_session?.ResetRun();
         m_player = null;
         m_stage_coroutine = null;
         m_title_loop.StartTitleLoop();
@@ -571,11 +436,7 @@ public class StageLoop : MonoBehaviour
 
     private void SetState(GameState state)
     {
-        State = state;
-        if (m_stage_ui_root) m_stage_ui_root.SetActive(state != GameState.Title);
-        if (m_game_over_text) m_game_over_text.gameObject.SetActive(state == GameState.GameOver);
-        if (m_upgrade_panel) m_upgrade_panel.SetActive(state == GameState.LevelUp);
-        if (m_skills_panel) m_skills_panel.SetActive(state == GameState.Skills);
+        m_session.SetState(state);
     }
 
     private IEnumerator AnimateUpgradePanel()
@@ -637,12 +498,12 @@ public class StageLoop : MonoBehaviour
 
     private int GetDifficultyStage()
     {
-        return Mathf.Max(0, Mathf.FloorToInt(m_survival_time / Mathf.Max(1f, GameBalanceConfig.Current.difficulty.stageSeconds)));
+        return Mathf.Max(0, Mathf.FloorToInt(SurvivalTime / Mathf.Max(1f, GameBalanceConfig.Current.difficulty.stageSeconds)));
     }
 
     private float GetDifficultyProgress()
     {
-        return Mathf.Max(0f, m_survival_time / Mathf.Max(1f, GameBalanceConfig.Current.difficulty.stageSeconds));
+        return Mathf.Max(0f, SurvivalTime / Mathf.Max(1f, GameBalanceConfig.Current.difficulty.stageSeconds));
     }
 
     private float GetCameraBottom()
@@ -1002,7 +863,7 @@ public class StageLoop : MonoBehaviour
         Time.timeScale = 0f;
         SetState(GameState.Skills);
         m_skills_panel.transform.SetAsLastSibling();
-        RefreshSkillsPanel();
+        m_hud.RefreshSkills(m_player.RuntimeWeapon);
     }
 
     private void CloseSkillsPanel()
@@ -1011,62 +872,6 @@ public class StageLoop : MonoBehaviour
         Time.timeScale = 1f;
         SetState(GameState.Playing);
         if (m_player) m_player.ResumeRunning();
-    }
-
-    private void RefreshSkillsPanel()
-    {
-        if (!m_skills_content_text || !m_player || m_player.RuntimeWeapon == null) return;
-        WeaponRuntimeState weapon = m_player.RuntimeWeapon;
-        m_skills_content_text.text =
-            $"<color=#7EDDEC><b>WEAPON STATUS</b></color>\n" +
-            $"DMG {weapon.Damage:0.0}   INTERVAL {weapon.FireInterval:0.00}s   CRIT {weapon.CriticalChance * 100f:0}%   " +
-            $"PROJECTILES {weapon.ProjectileCount}   PIERCE {weapon.PenetrationCount}   BURST {weapon.BurstCount}";
-        bool hasSkills = false;
-        foreach (WeaponUpgradeType type in Enum.GetValues(typeof(WeaponUpgradeType)))
-        {
-            int index = (int)type;
-            int level = weapon.GetUpgradeLevel(type);
-            bool acquired = level > 0;
-            m_skill_cells[index].SetActive(acquired);
-            if (!acquired) continue;
-            hasSkills = true;
-            m_skill_cell_names[index].text = $"LV {level}  {GetSkillDisplayName(type)}";
-            m_skill_cell_values[index].text = GetSkillCurrentValue(type, weapon);
-            m_skill_cell_icons[index].sprite = GetUpgradeIcon(type);
-        }
-        if (m_skills_empty_text) m_skills_empty_text.gameObject.SetActive(!hasSkills);
-    }
-
-    private static string GetSkillDisplayName(WeaponUpgradeType type)
-    {
-        switch (type)
-        {
-            case WeaponUpgradeType.Damage: return "REINFORCED ROUNDS";
-            case WeaponUpgradeType.FireInterval: return "RAPID FIRE";
-            case WeaponUpgradeType.ProjectileSpeed: return "HIGH-VELOCITY ROUNDS";
-            case WeaponUpgradeType.ProjectileCount: return "MULTISHOT";
-            case WeaponUpgradeType.Penetration: return "PIERCING ROUNDS";
-            case WeaponUpgradeType.CriticalChance: return "CRITICAL ROUNDS";
-            case WeaponUpgradeType.BurstFire: return "BURST MODULE";
-            case WeaponUpgradeType.Lightning: return "AUTO LIGHTNING";
-            default: return type.ToString().ToUpperInvariant();
-        }
-    }
-
-    private static string GetSkillCurrentValue(WeaponUpgradeType type, WeaponRuntimeState weapon)
-    {
-        switch (type)
-        {
-            case WeaponUpgradeType.Damage: return $"Current damage: {weapon.Damage:0.0}";
-            case WeaponUpgradeType.FireInterval: return $"Current fire interval: {weapon.FireInterval:0.00}s";
-            case WeaponUpgradeType.ProjectileSpeed: return $"Current projectile speed: {weapon.ProjectileSpeed:0.0}";
-            case WeaponUpgradeType.ProjectileCount: return $"Current projectiles per volley: {weapon.ProjectileCount}";
-            case WeaponUpgradeType.Penetration: return $"Current extra penetration: {weapon.PenetrationCount}";
-            case WeaponUpgradeType.CriticalChance: return $"Current critical chance: {weapon.CriticalChance * 100f:0}%";
-            case WeaponUpgradeType.BurstFire: return $"Current volleys per attack: {weapon.BurstCount}";
-            case WeaponUpgradeType.Lightning: return $"Lightning level {weapon.LightningLevel}, every {weapon.LightningInterval:0.00}s";
-            default: return string.Empty;
-        }
     }
 
     private static Sprite GetTickSprite()
@@ -1111,13 +916,6 @@ public class StageLoop : MonoBehaviour
         if (!outline) outline = text.gameObject.AddComponent<Outline>();
         outline.effectColor = new Color(0f, 0.04f, 0.07f, 0.9f);
         outline.effectDistance = new Vector2(1.5f, -1.5f);
-    }
-
-    private void RefreshHud()
-    {
-        if (m_stage_score_text) m_stage_score_text.text = $"Score {m_game_score:00000}";
-        if (m_defense_text) m_defense_text.text = $"Defense: {m_max_breaches - m_breach_count} / {m_max_breaches}";
-        if (m_time_text) m_time_text.text = $"Time {FormatTime(m_survival_time)}";
     }
 
     private void CreateExperienceBar()
@@ -1301,36 +1099,6 @@ public class StageLoop : MonoBehaviour
         }
     }
 
-    private void RefreshProgressionUi()
-    {
-        if (m_progression == null) return;
-        float progress = m_progression.RequiredExperience > 0
-            ? Mathf.Clamp01((float)m_progression.CurrentExperience / m_progression.RequiredExperience)
-            : 0f;
-        int percentage = Mathf.RoundToInt(progress * 100f);
-
-        if (m_level_text) m_level_text.text = $"Level {m_progression.Level}";
-        if (m_experience_text)
-            m_experience_text.text = $"EXP {m_progression.CurrentExperience} / {m_progression.RequiredExperience} ({percentage}%)";
-        if (m_experience_fill_rect) m_experience_fill_rect.sizeDelta = new Vector2(356f * progress, 18f);
-        if (m_experience_percent_text) m_experience_percent_text.text = $"{percentage}%";
-    }
-
-    private void RefreshGameOverText()
-    {
-        if (!m_game_over_text) return;
-        m_game_over_text.text =
-            $"GAME OVER\n\nFinal Score: {m_game_score}\nSurvival Time: {FormatTime(m_survival_time)}\n" +
-            $"Breaches: {m_breach_count} / {m_max_breaches}\nFinal Level: {Level}\nTotal Kills: {KillCount}\n\n" +
-            "Press Space to Restart\nPress Esc to Return to Title";
-    }
-
-    private static string FormatTime(float time)
-    {
-        int totalSeconds = Mathf.Max(0, Mathf.FloorToInt(time));
-        return $"{totalSeconds / 60:00}:{totalSeconds % 60:00}";
-    }
-
     private void OnDrawGizmos()
     {
         Camera camera = m_game_camera ? m_game_camera : Camera.main;
@@ -1359,13 +1127,14 @@ public class StageLoop : MonoBehaviour
         CleanupStageObjects();
         m_feedback?.ClearTransient();
         m_feedback?.StopAudio();
-        State = GameState.Title;
+        m_session?.SetState(GameState.Title);
         if (m_upgrade_panel) m_upgrade_panel.SetActive(false);
     }
 
     private void OnDestroy()
     {
         Time.timeScale = 1f;
+        m_hud?.Dispose();
         OnLevelUp = null;
         if (Instance == this) Instance = null;
     }
