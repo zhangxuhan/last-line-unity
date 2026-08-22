@@ -20,7 +20,7 @@ Stop enemies before they cross the defense line. Each lane has a single-use defe
 
 ## Core Mechanics
 
-Enemies award score and experience when defeated. Experience levels pause the action and offer three upgrades. Enemy health, movement speed, and spawn rate increase continuously over time. Brute, runner, and elite variants join the normal enemies as pressure rises.
+Enemies award score and experience when defeated. Experience levels pause the action and offer three upgrades. Enemy health, movement speed, spawn rate, and wave budget increase over time. Brute, runner, weaver, shield, elite, and giant variants join the normal enemies in later waves.
 
 ## Upgrade List
 
@@ -33,11 +33,11 @@ Enemies award score and experience when defeated. Experience levels pause the ac
 - Burst Module: adds rapid volleys to each attack
 - Auto Lightning: periodically strikes the enemy closest to the defense line
 
-Upgrade cards can appear at R, SR, or SSR rarity. Higher rarity gives a larger numerical increase where applicable. Upgrades that have reached their limit are removed from the selection pool.
+Upgrade cards can appear at R, SR, SSR, or UR rarity. Higher rarity gives a larger numerical increase where applicable. Upgrades that have reached their limit are removed from the selection pool.
 
 ## How to Run the Build
 
-Open `WindowsBuild/LastLine.exe`. The build targets 64-bit Windows and starts in a 1024 x 768 window. Unity Editor is not required.
+Open `WindowsBuild/LastLine.exe`. The build targets 64-bit Windows and starts in a 600 x 800 portrait window. Unity Editor is not required.
 
 ## How to Open the Project
 
@@ -58,8 +58,9 @@ Visual and audio assets are credited in `THIRD_PARTY_NOTICES.md`. The included K
 
 - Weapon: 10 damage, 0.35-second fire interval, 10 projectile speed, one projectile, no penetration, 8-degree spread step
 - Enemy: 30 HP, 0.9 movement speed, 100 score, 1 EXP
-- Spawn interval: 1.4 seconds initially, with a 0.5-second floor
-- Difficulty: every 30 seconds of survival corresponds to approximately 1.15x HP, 1.05x speed, and 0.92x spawn interval
+- Spawn interval: 1.05 seconds initially, with a 0.32-second floor
+- Difficulty: every 30 seconds of survival corresponds to approximately 1.17x HP, 1.06x speed, and 0.90x spawn interval
+- Waves: budget starts at 12, grows by 5 per wave, and is capped by the configured active-enemy limits
 - Level requirements: 5, 8, 12, 17, then the previous requirement multiplied by 1.3 and rounded up
 
 ## Design Notes
