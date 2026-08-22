@@ -109,6 +109,11 @@ public sealed class StageHudPresenter : IDisposable
         foreach (WeaponUpgradeType type in Enum.GetValues(typeof(WeaponUpgradeType)))
         {
             int index = (int)type;
+            if (!HasSkillSlot(index))
+            {
+                Debug.LogWarning($"Skills HUD has no valid slot for {type} (enum value {index}); skipping it.");
+                continue;
+            }
             int upgradeLevel = weapon.GetUpgradeLevel(type);
             bool acquired = upgradeLevel > 0;
             m_skill_cells[index].SetActive(acquired);
@@ -116,9 +121,19 @@ public sealed class StageHudPresenter : IDisposable
             hasSkills = true;
             m_skill_names[index].text = $"LV {upgradeLevel}  {GetSkillDisplayName(type)}";
             m_skill_values[index].text = GetSkillCurrentValue(type, weapon);
-            m_skill_icons[index].sprite = m_icon_resolver(type);
+            m_skill_icons[index].sprite = m_icon_resolver != null ? m_icon_resolver(type) : null;
         }
         if (m_skills_empty) m_skills_empty.gameObject.SetActive(!hasSkills);
+    }
+
+    private bool HasSkillSlot(int index)
+    {
+        return index >= 0
+            && m_skill_cells != null && index < m_skill_cells.Length
+            && m_skill_names != null && index < m_skill_names.Length
+            && m_skill_values != null && index < m_skill_values.Length
+            && m_skill_icons != null && index < m_skill_icons.Length
+            && m_skill_cells[index] && m_skill_names[index] && m_skill_values[index] && m_skill_icons[index];
     }
 
     public void RefreshGameOver()
