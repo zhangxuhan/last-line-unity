@@ -24,6 +24,9 @@ public class TitleLoop : MonoBehaviour
     private bool m_display_open;
     private int m_selected_display_mode;
     private bool m_start_requested;
+    private Text m_title_text;
+    private Image m_title_scanline;
+    private Coroutine m_title_presentation_coroutine;
 
     private void Start()
     {
@@ -37,8 +40,10 @@ public class TitleLoop : MonoBehaviour
     public void StartTitleLoop()
     {
         if (m_title_coroutine != null) StopCoroutine(m_title_coroutine);
+        if (m_title_presentation_coroutine != null) StopCoroutine(m_title_presentation_coroutine);
         m_start_requested = false;
         m_title_coroutine = StartCoroutine(TitleCoroutine());
+        m_title_presentation_coroutine = StartCoroutine(TitlePresentationRoutine());
     }
 
     private IEnumerator TitleCoroutine()
@@ -96,26 +101,30 @@ public class TitleLoop : MonoBehaviour
         Text title = m_ui_title.Find("TitleText")?.GetComponent<Text>();
         if (title)
         {
+            m_title_text = title;
             title.text = "LAST LINE";
-            title.rectTransform.anchoredPosition = new Vector2(0f, -142f);
-            title.rectTransform.sizeDelta = new Vector2(650f, 116f);
-            title.fontSize = 72;
+            title.rectTransform.anchoredPosition = new Vector2(0f, -132f);
+            title.rectTransform.sizeDelta = new Vector2(680f, 126f);
+            title.fontSize = 84;
             title.fontStyle = FontStyle.Bold;
-            title.color = new Color(0.72f, 0.96f, 1f);
+            title.color = new Color(0.82f, 0.98f, 1f);
             Outline titleOutline = title.GetComponent<Outline>();
             if (!titleOutline) titleOutline = title.gameObject.AddComponent<Outline>();
-            titleOutline.effectColor = new Color(0.02f, 0.36f, 0.48f, 0.95f);
-            titleOutline.effectDistance = new Vector2(3f, -3f);
+            titleOutline.effectColor = new Color(0.01f, 0.28f, 0.40f, 1f);
+            titleOutline.effectDistance = new Vector2(4f, -4f);
         }
 
-        Text subtitle = CreateLabel(template, m_ui_title, "HOLD THE DEFENSE  •  SURVIVE  •  EVOLVE", 20,
-            new Color(0.32f, 0.82f, 0.92f));
+        CreateTitleAccent(template, m_ui_title);
+
+        Text subtitle = CreateLabel(template, m_ui_title, "TACTICAL SURVIVAL  //  DEFENSE PROTOCOL 01", 19,
+            new Color(0.35f, 0.88f, 0.96f));
         subtitle.name = "Subtitle";
         subtitle.rectTransform.anchorMin = new Vector2(0.5f, 1f);
         subtitle.rectTransform.anchorMax = new Vector2(0.5f, 1f);
         subtitle.rectTransform.pivot = new Vector2(0.5f, 1f);
-        subtitle.rectTransform.anchoredPosition = new Vector2(0f, -214f);
+        subtitle.rectTransform.anchoredPosition = new Vector2(0f, -210f);
         subtitle.rectTransform.sizeDelta = new Vector2(620f, 42f);
+        subtitle.fontStyle = FontStyle.Bold;
 
         GameObject missionPanel = new GameObject("MissionPanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         RectTransform missionRect = missionPanel.GetComponent<RectTransform>();
@@ -129,30 +138,67 @@ public class TitleLoop : MonoBehaviour
         missionOutline.effectColor = new Color(0.12f, 0.48f, 0.60f, 0.85f);
         missionOutline.effectDistance = new Vector2(2f, -2f);
 
+        Text missionHeader = CreateLabel(template, missionRect, "FIELD BRIEFING", 16,
+            new Color(0.32f, 0.88f, 0.96f));
+        missionHeader.rectTransform.anchorMin = new Vector2(0f, 1f);
+        missionHeader.rectTransform.anchorMax = new Vector2(0f, 1f);
+        missionHeader.rectTransform.pivot = new Vector2(0f, 1f);
+        missionHeader.rectTransform.anchoredPosition = new Vector2(22f, -12f);
+        missionHeader.rectTransform.sizeDelta = new Vector2(210f, 30f);
+        missionHeader.alignment = TextAnchor.MiddleLeft;
+        missionHeader.fontStyle = FontStyle.Bold;
+
         Text instructions = m_ui_title.Find("PressStart")?.GetComponent<Text>();
         if (instructions)
         {
-            instructions.text = "MOVE    A / D  or  ARROW KEYS\nAIM       MOUSE\nFIRE      HOLD LEFT MOUSE  or  AUTO FIRE\n\nStop every enemy before the defense line falls.";
+            instructions.text = "<color=#59D9EE><b>MOVE</b></color>     A / D  or  ARROW KEYS\n" +
+                "<color=#59D9EE><b>AIM</b></color>        MOUSE\n" +
+                "<color=#59D9EE><b>FIRE</b></color>       HOLD LEFT MOUSE  or  AUTO FIRE\n\n" +
+                "<color=#FFFFFF>Stop every enemy before the defense line falls.</color>";
             instructions.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             instructions.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             instructions.rectTransform.anchoredPosition = new Vector2(0f, 24f);
             instructions.rectTransform.sizeDelta = new Vector2(560f, 178f);
             instructions.fontSize = 23;
-            instructions.fontStyle = FontStyle.Bold;
+            instructions.fontStyle = FontStyle.Normal;
             instructions.color = new Color(0.88f, 0.96f, 1f);
             instructions.raycastTarget = false;
             instructions.transform.SetAsLastSibling();
         }
 
-        CreateMenuButton(template, m_ui_title, "StartButton", new Vector2(0f, -164f), new Vector2(320f, 64f),
-            "START GAME", new Color(0.06f, 0.58f, 0.72f, 1f), RequestStart);
+        CreateMenuButton(template, m_ui_title, "StartButton", new Vector2(0f, -164f), new Vector2(360f, 72f),
+            "▶   DEPLOY", new Color(0.04f, 0.64f, 0.78f, 1f), RequestStart);
 
-        Text shortcut = CreateLabel(template, m_ui_title, "or press SPACE", 17, new Color(0.55f, 0.72f, 0.78f));
+        Text shortcut = CreateLabel(template, m_ui_title, "SPACE  //  QUICK START", 16, new Color(0.55f, 0.76f, 0.82f));
         shortcut.name = "StartShortcut";
         shortcut.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
         shortcut.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
         shortcut.rectTransform.anchoredPosition = new Vector2(0f, -208f);
         shortcut.rectTransform.sizeDelta = new Vector2(260f, 28f);
+    }
+
+    private void CreateTitleAccent(Text template, Transform parent)
+    {
+        GameObject scanline = new GameObject("TitleScanline", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        RectTransform scanRect = scanline.GetComponent<RectTransform>();
+        scanRect.SetParent(parent, false);
+        scanRect.anchorMin = new Vector2(0.5f, 1f);
+        scanRect.anchorMax = new Vector2(0.5f, 1f);
+        scanRect.pivot = new Vector2(0.5f, 1f);
+        scanRect.anchoredPosition = new Vector2(0f, -188f);
+        scanRect.sizeDelta = new Vector2(540f, 3f);
+        m_title_scanline = scanline.GetComponent<Image>();
+        m_title_scanline.color = new Color(0.12f, 0.82f, 0.96f, 0.82f);
+        m_title_scanline.raycastTarget = false;
+
+        Text status = CreateLabel(template, parent, "// LAST ACTIVE DEFENSE GRID", 14,
+            new Color(0.34f, 0.64f, 0.70f));
+        status.name = "TitleStatus";
+        status.rectTransform.anchorMin = new Vector2(0.5f, 1f);
+        status.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+        status.rectTransform.pivot = new Vector2(0.5f, 1f);
+        status.rectTransform.anchoredPosition = new Vector2(0f, -82f);
+        status.rectTransform.sizeDelta = new Vector2(420f, 30f);
     }
 
     private Button CreateMenuButton(Text template, Transform parent, string name, Vector2 position, Vector2 size,
@@ -177,8 +223,33 @@ public class TitleLoop : MonoBehaviour
         colors.pressedColor = new Color(0.55f, 0.78f, 0.84f);
         button.colors = colors;
         button.onClick.AddListener(action);
-        CreateLabel(template, rect, label, 25, Color.white);
+        Text buttonLabel = CreateLabel(template, rect, label, name == "StartButton" ? 28 : 22, Color.white);
+        buttonLabel.fontStyle = FontStyle.Bold;
+        TitleButtonFeedback feedback = buttonObject.AddComponent<TitleButtonFeedback>();
+        feedback.Initialize(image, rect, color, name == "StartButton");
         return button;
+    }
+
+    private IEnumerator TitlePresentationRoutine()
+    {
+        while (m_ui_title && m_ui_title.gameObject.activeInHierarchy)
+        {
+            float pulse = 0.5f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.5f;
+            if (m_title_text)
+            {
+                m_title_text.color = Color.Lerp(new Color(0.66f, 0.91f, 0.96f), Color.white, pulse * 0.45f);
+                m_title_text.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.995f, 1.012f, pulse);
+            }
+            if (m_title_scanline)
+            {
+                Color color = m_title_scanline.color;
+                color.a = Mathf.Lerp(0.35f, 0.92f, pulse);
+                m_title_scanline.color = color;
+                m_title_scanline.rectTransform.sizeDelta = new Vector2(Mathf.Lerp(430f, 560f, pulse), 3f);
+            }
+            yield return null;
+        }
+        m_title_presentation_coroutine = null;
     }
 
     private void RequestStart()
@@ -407,10 +478,55 @@ public class TitleLoop : MonoBehaviour
 
     private void OnDisable()
     {
-        if (m_title_coroutine == null) return;
-        StopCoroutine(m_title_coroutine);
+        if (m_title_coroutine != null) StopCoroutine(m_title_coroutine);
+        if (m_title_presentation_coroutine != null) StopCoroutine(m_title_presentation_coroutine);
         m_title_coroutine = null;
+        m_title_presentation_coroutine = null;
     }
+}
+
+public sealed class TitleButtonFeedback : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
+    IPointerDownHandler, IPointerUpHandler
+{
+    private Image m_image;
+    private RectTransform m_rect;
+    private Color m_base_color;
+    private Vector3 m_target_scale = Vector3.one;
+    private bool m_emphasis;
+
+    public void Initialize(Image image, RectTransform rect, Color baseColor, bool emphasis)
+    {
+        m_image = image;
+        m_rect = rect;
+        m_base_color = baseColor;
+        m_emphasis = emphasis;
+    }
+
+    private void Update()
+    {
+        if (!m_rect || !m_image) return;
+        m_rect.localScale = Vector3.Lerp(m_rect.localScale, m_target_scale, Time.unscaledDeltaTime * 14f);
+        if (m_emphasis && m_target_scale == Vector3.one)
+        {
+            float pulse = 0.5f + Mathf.Sin(Time.unscaledTime * 3.2f) * 0.5f;
+            m_image.color = Color.Lerp(m_base_color, Color.Lerp(m_base_color, Color.white, 0.12f), pulse);
+        }
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        m_target_scale = Vector3.one * 1.045f;
+        if (m_image) m_image.color = Color.Lerp(m_base_color, Color.white, 0.20f);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        m_target_scale = Vector3.one;
+        if (m_image) m_image.color = m_base_color;
+    }
+
+    public void OnPointerDown(PointerEventData eventData) => m_target_scale = Vector3.one * 0.97f;
+    public void OnPointerUp(PointerEventData eventData) => OnPointerEnter(eventData);
 }
 
 public static class LocalLeaderboard
