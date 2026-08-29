@@ -27,6 +27,13 @@ Move along the bottom of the screen, aim with the mouse, and shoot enemies befor
 
 - Engine: Unity `6000.3.15f1`
 - Main scene: `Assets/Scenes/SampleScene.unity`
-- Windows build: `WindowsBuild/LastLine.exe`
+
+## Windows Build / Windows版 / Windows 版本
+
+Download `Last-Line-Windows-x64.zip` from [GitHub Releases](https://github.com/zhangxuhan/last-line-unity/releases/latest). Extract the entire ZIP file, keep all included files and folders together, and run `LastLine.exe`.
+
+[GitHub Releases](https://github.com/zhangxuhan/last-line-unity/releases/latest) から `Last-Line-Windows-x64.zip` をダウンロードし、ZIP全体を展開してください。中のファイルとフォルダーを同じ場所に置いたまま、`LastLine.exe` を実行します。
+
+前往 [GitHub Releases](https://github.com/zhangxuhan/last-line-unity/releases/latest) 下载 `Last-Line-Windows-x64.zip`，完整解压并保持其中所有文件和文件夹位于同一目录，然后运行 `LastLine.exe`。
 
 Third-party visual and audio assets are listed in `THIRD_PARTY_NOTICES.md`.
